@@ -177,7 +177,7 @@ def generate_gradcam(post_img: Image.Image, buildings: list) -> str:
 
 
 def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
-              buildings: list, models: list) -> str:
+              buildings: list, models: list, event_name: str = "—") -> str:
 
     buildings_json = json.dumps(buildings)
     models_json    = json.dumps(models)
@@ -398,7 +398,7 @@ def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
   <div class="sdp sdheader">
     <span class="title">SATDAMAGE // ASSESSMENT HUD</span>
     <div style="text-align:right">
-      <div class="sub">TERRAN TACTICAL OVERLAY &nbsp;·&nbsp; SELECT MODEL:</div>
+      <div class="sub">{event_name} &nbsp;·&nbsp; SELECT MODEL:</div>
       <div class="model-tabs" id="model-tabs">
         <button class="mtab active" onclick="selectModel(0)">CNN-4BLOCK</button>
         <button class="mtab"        onclick="selectModel(1)">EFFICIENTNET-B0</button>
@@ -741,11 +741,12 @@ sample_idx = sample_labels.index(selected_label) - 1  # -1 → upload mode
 if sample_idx >= 0:
     # ── Sample pair mode
     pair = SAMPLE_PAIRS[sample_idx]
-    post_img = Image.open(pair["post"]).convert("RGB")
-    pre_img  = Image.open(pair["pre"]).convert("RGB")
-    post_b64 = pil_to_b64(post_img, max_w=600)
-    pre_b64  = pil_to_b64(pre_img, max_w=600)
-    seed     = pair["seed"]
+    post_img   = Image.open(pair["post"]).convert("RGB")
+    pre_img    = Image.open(pair["pre"]).convert("RGB")
+    post_b64   = pil_to_b64(post_img, max_w=600)
+    pre_b64    = pil_to_b64(pre_img, max_w=600)
+    seed       = pair["seed"]
+    event_name = pair["label"]
 else:
     # ── Upload mode
     col_pre, col_post = st.columns(2)
@@ -780,12 +781,13 @@ else:
     pre_b64  = None
     if uploaded_pre is not None:
         pre_b64 = pil_to_b64(Image.open(uploaded_pre).convert("RGB"), max_w=600)
-    seed = hash(uploaded_post.name) % 9999
+    seed       = hash(uploaded_post.name) % 9999
+    event_name = uploaded_post.name.upper()
 
 buildings   = predict(post_img, seed=seed)
 gradcam_b64 = generate_gradcam(post_img, buildings)
 
-hud_html = build_hud(pre_b64, gradcam_b64, post_b64, buildings, MODELS)
+hud_html = build_hud(pre_b64, gradcam_b64, post_b64, buildings, MODELS, event_name)
 
 st.components.v1.html(hud_html, height=620, scrolling=False)
 
