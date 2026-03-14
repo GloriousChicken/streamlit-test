@@ -1,0 +1,740 @@
+"""
+app.py — SatDamage Assessment HUD (Streamlit prototype)
+Run: streamlit run app.py
+"""
+
+import json
+import numpy as np
+import streamlit as st
+from PIL import Image
+import base64
+import io
+
+from dummy_predictor import predict, DAMAGE_CLASSES
+
+# ── Model registry (metrics display only — swap for real values)
+MODELS = [
+    {"key": "CNN-4BLOCK",      "f1":"0.703","prec":"0.630","rec":"0.800","auc":"0.938","acc":"0.810","epoch":"38 / 46"},
+    {"key": "EFFICIENTNET-B0", "f1":"0.741","prec":"0.698","rec":"0.791","auc":"0.952","acc":"0.836","epoch":"22 / 30"},
+    {"key": "RESNET-50 [WIP]", "f1":"—",    "prec":"—",    "rec":"—",    "auc":"—",    "acc":"—",    "epoch":"— / —"},
+]
+
+# ── Page config
+st.set_page_config(
+    page_title="SatDamage // Assessment HUD",
+    page_icon="🛰️",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+# ── Streamlit chrome
+st.markdown("""
+<style>
+  #MainMenu, footer, header {visibility:hidden}
+
+  /* === DARK ANIMATED BACKGROUND === */
+  .stApp, .main, [data-testid="stAppViewContainer"] {
+    background-color: #05080d !important;
+  }
+  @keyframes bgScroll {
+    from { background-position: 0 0, 0 0; }
+    to   { background-position: 40px 40px, 40px 40px; }
+  }
+  .stApp {
+    background-image:
+      linear-gradient(rgba(0,80,160,0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,80,160,0.055) 1px, transparent 1px) !important;
+    background-size: 40px 40px !important;
+    animation: bgScroll 28s linear infinite !important;
+  }
+
+  .block-container { padding-top:.8rem; padding-bottom:.8rem; background:transparent !important; }
+
+  /* === COMPACT UPLOADERS === */
+  [data-testid="stFileUploaderDropzone"] {
+    background: rgba(5,12,20,0.92) !important;
+    border: 1px solid #0a2a4a !important;
+    border-radius: 0 !important;
+    padding: 5px 10px !important;
+    min-height: 0 !important;
+  }
+  [data-testid="stFileUploaderDropzone"]:hover {
+    border-color: #40c8ff !important;
+    box-shadow: 0 0 8px #00aaff33 !important;
+  }
+  /* hide drag icon + "drag and drop" text + file limit line */
+  [data-testid="stFileUploaderDropzone"] svg { display:none !important; }
+  [data-testid="stFileUploaderDropzone"] small { display:none !important; }
+  [data-testid="stFileUploaderDropzone"] span  { display:none !important; }
+  /* keep the Browse button visible */
+  [data-testid="stFileUploaderDropzone"] button {
+    font-family: monospace !important;
+    font-size: 9px !important;
+    letter-spacing: 1.5px !important;
+    color: #40c8ff !important;
+    background: transparent !important;
+    border: 0.5px solid #0a4a7a !important;
+    border-radius: 0 !important;
+    padding: 3px 10px !important;
+  }
+  /* uploaded file name row */
+  [data-testid="stFileUploaderFile"] {
+    background: rgba(0,20,40,0.8) !important;
+    border: 0.5px solid #0a3050 !important;
+    border-radius: 0 !important;
+    font-family: monospace !important;
+    font-size: 9px !important;
+    color: #40c8ff !important;
+  }
+
+  /* caption text below uploaders */
+  p[data-testid="stCaptionContainer"] {
+    color: #1a5070 !important;
+    font-family: monospace !important;
+    letter-spacing: 1.5px !important;
+    font-size: 9px !important;
+    margin-top: 2px !important;
+  }
+
+  /* expander */
+  div[data-testid="stExpander"] {
+    background: rgba(5,12,20,0.92);
+    border: 0.5px solid #0a2a4a !important;
+    border-radius: 0 !important;
+  }
+  div[data-testid="stExpander"] summary {
+    color: #40c8ff !important; font-family: monospace; letter-spacing: 1px;
+  }
+</style>
+
+<!-- fixed scanline overlay over entire page -->
+<div style="position:fixed;inset:0;pointer-events:none;z-index:9999;
+     background:repeating-linear-gradient(
+       transparent 0px,transparent 3px,
+       rgba(0,0,8,0.13) 3px,rgba(0,0,8,0.13) 4px)"></div>
+""", unsafe_allow_html=True)
+
+
+# ── Helpers
+def pil_to_b64(img: Image.Image, max_w: int = 600) -> str:
+    ratio = max_w / img.width if img.width > max_w else 1.0
+    img = img.resize((int(img.width * ratio), int(img.height * ratio)), Image.LANCZOS)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def generate_gradcam(post_img: Image.Image, buildings: list) -> str:
+    """Fake Grad-CAM: gaussian activation blobs colored by damage class."""
+    w, h = post_img.size
+    heat  = np.zeros((h, w, 3), dtype=np.float32)
+    COLORS = [(0.0,0.95,0.45),(0.95,0.85,0.0),(0.95,0.32,0.0),(0.95,0.05,0.05)]
+    yy, xx = np.mgrid[0:h, 0:w]
+    for b in buildings:
+        cx    = (b["x"] + b["w"] / 2) * w
+        cy    = (b["y"] + b["h"] / 2) * h
+        sigma = max(b["w"] * w, b["h"] * h) * 1.3 + 6
+        blob  = np.exp(-((xx-cx)**2+(yy-cy)**2) / (2*sigma**2)) * (0.45+b["confidence"]*0.55)
+        for c, cv in enumerate(COLORS[b["label"]]):
+            heat[:,:,c] = np.maximum(heat[:,:,c], blob * cv)
+    result = np.clip(np.array(post_img).astype(np.float32)/255.0 * 0.30 + heat * 0.90, 0, 1)
+    buf = io.BytesIO()
+    Image.fromarray((result * 255).astype(np.uint8)).save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
+              buildings: list, models: list) -> str:
+
+    buildings_json = json.dumps(buildings)
+    models_json    = json.dumps(models)
+
+    pre_html = f"""
+      <div class="imgbox-static">
+        <img src="data:image/png;base64,{pre_b64}"
+             style="max-width:100%;max-height:280px;width:auto;height:auto;display:block;opacity:.85"/>
+        <div class="corner tl"></div><div class="corner tr"></div>
+        <div class="corner bl"></div><div class="corner br"></div>
+      </div>""" if pre_b64 else """
+      <div style="background:#060e18;border:0.5px solid #0a2a4a;min-height:110px;
+           display:flex;align-items:center;justify-content:center;
+           color:#0a2a4a;font-size:9px;letter-spacing:2.5px">NO FEED</div>"""
+
+    return f"""
+<style>
+  /* === BASE === */
+  * {{box-sizing:border-box;margin:0;padding:0}}
+
+  @keyframes bgScroll {{
+    from {{ background-position:0 0; }}
+    to   {{ background-position:40px 40px; }}
+  }}
+  body {{
+    background-color:#05080d;
+    background-image:
+      linear-gradient(rgba(0,80,160,0.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(0,80,160,0.04) 1px,transparent 1px);
+    background-size:40px 40px;
+    animation:bgScroll 28s linear infinite;
+    font-family:'Courier New',monospace;color:#40c8ff;
+  }}
+
+  /* === PANEL === */
+  .sdp {{
+    background:rgba(5,12,20,0.88);
+    border:0.5px solid #0a2a4a;
+    clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%);
+    box-shadow:inset 0 0 0 1px #0a4a7a,0 0 10px #00aaff22;
+    padding:10px 12px;
+  }}
+
+  /* === SECTION LABELS === */
+  .sdl {{
+    font-size:9px;color:#2a6080;letter-spacing:2.5px;text-transform:uppercase;
+    margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #0a3050;
+  }}
+
+  /* === LAYOUT === */
+  .sdgrid {{display:grid;grid-template-columns:1fr 1fr 1fr 210px;gap:8px}}
+  .sdcol  {{display:flex;flex-direction:column;gap:8px}}
+  .sdrow  {{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:3px 0;font-size:11px;border-bottom:1px solid #060e18;
+  }}
+  .sdrow span:first-child {{color:#1a5070;font-size:10px;letter-spacing:1px}}
+  .sdrow span:last-child  {{color:#40c8ff;font-size:11px;font-weight:600}}
+
+  /* === HEADER === */
+  .sdheader {{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:8px 14px;margin-bottom:0;
+  }}
+  .sdheader .title {{
+    font-size:13px;font-weight:700;letter-spacing:3px;
+    color:#40c8ff;text-shadow:0 0 8px #00aaff88;
+  }}
+  .sdheader .sub {{font-size:9px;color:#1a5070;letter-spacing:1px;margin-bottom:5px}}
+
+  /* === MODEL TABS === */
+  .model-tabs {{display:flex;gap:4px}}
+  .mtab {{
+    font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;
+    text-transform:uppercase;padding:3px 9px;
+    background:transparent;border:0.5px solid #0a2a4a;color:#1a5070;
+    clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,0 100%);
+    cursor:pointer;transition:all .15s;
+  }}
+  .mtab:hover  {{border-color:#40c8ff88;color:#40c8ff88}}
+  .mtab.active {{
+    background:rgba(0,60,100,0.5);border-color:#40c8ff;color:#40c8ff;
+    box-shadow:0 0 8px #00aaff44;
+  }}
+
+  /* === PROGRESS BAR === */
+  #pbar-track {{
+    height:2px;background:#060e18;margin:6px 0 8px;overflow:hidden;position:relative;
+  }}
+  #pbar {{
+    position:absolute;height:100%;width:0%;
+    background:linear-gradient(90deg,#0055aa,#00ff88);
+    box-shadow:0 0 8px #00ff8866;
+    transition:width .05s linear;
+  }}
+  @keyframes pbarPulse {{
+    0%,100% {{box-shadow:0 0 6px #00ff8866}}
+    50%     {{box-shadow:0 0 16px #00ff88cc}}
+  }}
+  #pbar.done {{animation:pbarPulse 1.5s ease-in-out 3}}
+
+  /* === IMAGE BOXES === */
+  .img-wrapper  {{width:100%;text-align:center}}
+  .imgbox-static {{
+    display:inline-block;position:relative;line-height:0;max-width:100%;
+    border:0.5px solid #0a3050;overflow:hidden;
+  }}
+  #imgbox {{
+    display:inline-block;position:relative;line-height:0;max-width:100%;
+    border:0.5px solid #0a3050;overflow:hidden;
+  }}
+
+  /* Corner brackets */
+  .corner {{position:absolute;width:14px;height:14px;z-index:5;pointer-events:none;opacity:0.5}}
+  .corner.tl {{top:4px;left:4px;border-top:2px solid #40c8ff;border-left:2px solid #40c8ff}}
+  .corner.tr {{top:4px;right:4px;border-top:2px solid #40c8ff;border-right:2px solid #40c8ff}}
+  .corner.bl {{bottom:4px;left:4px;border-bottom:2px solid #40c8ff;border-left:2px solid #40c8ff}}
+  .corner.br {{bottom:4px;right:4px;border-bottom:2px solid #40c8ff;border-right:2px solid #40c8ff}}
+  @keyframes cornerSlideIn {{
+    0%  {{opacity:0;transform:scale(1.5)}}
+    60% {{opacity:1}}
+    100%{{opacity:0.7;transform:scale(1)}}
+  }}
+  .corner.scanned {{animation:cornerSlideIn .4s ease-out forwards}}
+
+  /* SIMULATED badge */
+  .sim-badge {{
+    position:absolute;bottom:5px;right:5px;z-index:6;font-size:8px;letter-spacing:2px;
+    color:#ffdd0099;border:0.5px solid #ffdd0044;padding:2px 5px;
+    background:rgba(0,0,0,0.75);pointer-events:none;
+  }}
+
+  /* === LOCK-ON === */
+  .lockon {{position:absolute;pointer-events:none;display:none;z-index:8}}
+  .lo-corner {{position:absolute;width:8px;height:8px}}
+  .lo-tl {{top:0;left:0;border-top:2px solid #00ff88;border-left:2px solid #00ff88}}
+  .lo-tr {{top:0;right:0;border-top:2px solid #00ff88;border-right:2px solid #00ff88}}
+  .lo-bl {{bottom:0;left:0;border-bottom:2px solid #00ff88;border-left:2px solid #00ff88}}
+  .lo-br {{bottom:0;right:0;border-bottom:2px solid #00ff88;border-right:2px solid #00ff88}}
+  @keyframes lockOnAnim {{
+    0%   {{transform:scale(1.8);opacity:0}}
+    50%  {{opacity:1}}
+    100% {{transform:scale(1);opacity:1}}
+  }}
+  .lockon.active {{display:block;animation:lockOnAnim .2s ease-out forwards}}
+
+  /* === TOOLTIP === */
+  #sdtip {{
+    position:absolute;display:none;pointer-events:none;z-index:20;
+    background:rgba(0,12,25,0.97);border:1px solid #0a4a7a;
+    clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);
+    box-shadow:0 0 14px #00aaff44;min-width:140px;
+  }}
+  .tip-hdr {{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:4px 8px;border-bottom:1px solid #0a3050;
+    font-size:9px;letter-spacing:1.5px;color:#1a5070;
+  }}
+  .tip-body {{padding:5px 8px}}
+  .tip-lbl {{font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:4px}}
+  .tip-row {{display:flex;justify-content:space-between;align-items:center}}
+  .tip-key {{font-size:9px;color:#1a5070;letter-spacing:1px}}
+  .tip-val {{font-size:11px;font-weight:600;color:#40c8ff}}
+
+  /* === IMG FOOTER === */
+  .img-footer {{
+    display:flex;justify-content:space-between;
+    margin-top:4px;font-size:9px;color:#1a5070;letter-spacing:1px;
+  }}
+
+  /* === THREAT LEVEL === */
+  #sdtlabel {{font-size:18px;font-weight:700;letter-spacing:3px;margin-bottom:8px;color:#1a5070}}
+  @keyframes critPulse {{
+    0%,100%{{text-shadow:0 0 6px currentColor}}
+    50%    {{text-shadow:0 0 20px currentColor,0 0 40px currentColor}}
+  }}
+  #sdtlabel.critical {{animation:critPulse 1s ease-in-out infinite}}
+  .seg-bar {{display:flex;gap:3px;margin-bottom:6px;height:7px}}
+  .seg {{
+    flex:1;background:#060e18;
+    clip-path:polygon(2px 0%,100% 0%,calc(100% - 2px) 100%,0% 100%);
+    transition:background .08s;
+  }}
+  #sdtpct {{font-size:9px;color:#1a5070;letter-spacing:1.5px}}
+
+  /* === DAMAGE DISTRIBUTION === */
+  .dist-row  {{margin-bottom:6px}}
+  .dist-hdr  {{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;letter-spacing:1px}}
+  .dist-segs {{display:flex;gap:2px;height:4px}}
+  .dist-seg  {{
+    flex:1;background:#060e18;
+    clip-path:polygon(1px 0%,100% 0%,calc(100% - 1px) 100%,0% 100%);
+    transition:background .1s;
+  }}
+
+  /* === LEGEND + BUTTON === */
+  .legend   {{display:flex;gap:12px;flex-wrap:wrap;align-items:center}}
+  .leg-item {{font-size:10px;display:flex;align-items:center;gap:5px;letter-spacing:1px;color:#1a5070}}
+  .leg-sw   {{width:9px;height:9px;clip-path:polygon(0 0,calc(100% - 3px) 0,100% 3px,100% 100%,0 100%)}}
+  .sdfooter {{display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px}}
+  .sc2btn {{
+    font-family:'Courier New',monospace;font-size:11px;letter-spacing:2.5px;
+    text-transform:uppercase;padding:7px 20px;
+    background:rgba(0,25,45,0.9);border:1px solid #0a4a7a;color:#40c8ff;
+    clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
+    cursor:pointer;box-shadow:0 0 8px #00aaff22;transition:all .2s;
+  }}
+  .sc2btn:hover {{
+    background:rgba(0,55,90,0.95);border-color:#40c8ff;
+    box-shadow:0 0 18px #00aaff77,inset 0 0 8px #00335566;
+    color:#90e8ff;text-shadow:0 0 8px #40c8ff;
+  }}
+</style>
+
+<div style="padding:6px 0">
+
+  <!-- HEADER -->
+  <div class="sdp sdheader">
+    <span class="title">SATDAMAGE // ASSESSMENT HUD</span>
+    <div style="text-align:right">
+      <div class="sub">TERRAN TACTICAL OVERLAY &nbsp;·&nbsp; SELECT MODEL:</div>
+      <div class="model-tabs" id="model-tabs">
+        <button class="mtab active" onclick="selectModel(0)">CNN-4BLOCK</button>
+        <button class="mtab"        onclick="selectModel(1)">EFFICIENTNET-B0</button>
+        <button class="mtab"        onclick="selectModel(2)">RESNET-50 [WIP]</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCAN PROGRESS BAR -->
+  <div id="pbar-track"><div id="pbar"></div></div>
+
+  <!-- MAIN GRID: PRE | GRAD-CAM | POST+OVERLAY | STATS -->
+  <div class="sdgrid">
+
+    <!-- PRE-DISASTER -->
+    <div class="sdp">
+      <div class="sdl">PRE-DISASTER</div>
+      <div class="img-wrapper">{pre_html}</div>
+    </div>
+
+    <!-- GRAD-CAM -->
+    <div class="sdp">
+      <div class="sdl">GRAD-CAM // ACTIVATION MAP</div>
+      <div class="img-wrapper">
+        <div class="imgbox-static">
+          <img src="data:image/png;base64,{gradcam_b64}"
+               style="max-width:100%;max-height:280px;width:auto;height:auto;display:block"/>
+          <div class="corner tl"></div><div class="corner tr"></div>
+          <div class="corner bl"></div><div class="corner br"></div>
+          <div class="sim-badge">SIMULATED</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- POST-DISASTER + OVERLAY -->
+    <div class="sdp">
+      <div class="sdl">POST-DISASTER // OVERLAY</div>
+      <div class="img-wrapper">
+        <div id="imgbox">
+          <img id="sdimg" src="data:image/png;base64,{post_b64}"
+               style="max-width:100%;max-height:280px;width:auto;height:auto;display:block;opacity:.85"/>
+          <canvas id="sdoverlay"
+                  style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:none"></canvas>
+          <div class="corner tl" id="c-tl"></div>
+          <div class="corner tr" id="c-tr"></div>
+          <div class="corner bl" id="c-bl"></div>
+          <div class="corner br" id="c-br"></div>
+          <div id="lockon" class="lockon">
+            <div class="lo-corner lo-tl"></div><div class="lo-corner lo-tr"></div>
+            <div class="lo-corner lo-bl"></div><div class="lo-corner lo-br"></div>
+          </div>
+          <div id="sdtip">
+            <div class="tip-hdr">
+              <span>TARGET ACQUIRED</span><span id="tip-id">#0000</span>
+            </div>
+            <div class="tip-body">
+              <div class="tip-lbl" id="tip-lbl">—</div>
+              <div class="tip-row">
+                <span class="tip-key">CONFIDENCE</span>
+                <span class="tip-val" id="tip-conf">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="img-footer">
+        <span id="sdcoord">X: — &nbsp; Y: —</span>
+        <span id="sdstatus">OVERLAY READY</span>
+      </div>
+    </div>
+
+    <!-- STATS COLUMN -->
+    <div class="sdcol">
+      <div class="sdp">
+        <div class="sdl">THREAT LEVEL</div>
+        <div id="sdtlabel">—</div>
+        <div class="seg-bar" id="sdtsegs"></div>
+        <div id="sdtpct">run scan first</div>
+      </div>
+      <div class="sdp">
+        <div class="sdl">DAMAGE DISTRIBUTION</div>
+        <div id="sddist">
+          <div style="font-size:10px;color:#1a5070;letter-spacing:1.5px">AWAITING SCAN...</div>
+        </div>
+      </div>
+      <div class="sdp">
+        <div class="sdl">MODEL METRICS</div>
+        <div class="sdrow"><span>F1 DAMAGED</span><span id="m-f1">0.703</span></div>
+        <div class="sdrow"><span>PRECISION</span><span id="m-prec">0.630</span></div>
+        <div class="sdrow"><span>RECALL</span><span id="m-rec">0.800</span></div>
+        <div class="sdrow"><span>AUC-ROC</span><span id="m-auc">0.938</span></div>
+        <div class="sdrow"><span>ACCURACY</span><span id="m-acc">0.810</span></div>
+        <div class="sdrow" style="border-bottom:none"><span>BEST EPOCH</span><span id="m-epoch">38 / 46</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="sdfooter">
+    <div class="legend">
+      <span class="leg-item"><span class="leg-sw" style="background:#00cc66"></span>No damage</span>
+      <span class="leg-item"><span class="leg-sw" style="background:#ccaa00"></span>Minor</span>
+      <span class="leg-item"><span class="leg-sw" style="background:#cc4400"></span>Major</span>
+      <span class="leg-item"><span class="leg-sw" style="background:#aa0000"></span>Destroyed</span>
+    </div>
+    <button class="sc2btn" onclick="runScan()">RUN ASSESSMENT</button>
+  </div>
+
+</div>
+
+<script>
+const BUILDINGS   = {buildings_json};
+const MODELS_DATA = {models_json};
+const FILLS  = ['#00cc66','#ccaa00','#cc4400','#aa0000'];
+const HFILLS = ['#00ff88','#ffdd00','#ff6600','#ff2222'];
+const LABELS = ['No damage','Minor damage','Major damage','Destroyed'];
+const NSEGS  = 12;
+const NDSEG  = 20;
+
+const img    = document.getElementById('sdimg');
+const canvas = document.getElementById('sdoverlay');
+const ctx    = canvas.getContext('2d');
+const TIP    = document.getElementById('sdtip');
+const LOCKON = document.getElementById('lockon');
+const PBAR   = document.getElementById('pbar');
+
+let scanned = false;
+let hovId   = -1;
+
+// ── Init threat segments
+(function() {{
+  const bar = document.getElementById('sdtsegs');
+  for (let i = 0; i < NSEGS; i++) {{
+    const s = document.createElement('div');
+    s.className = 'seg'; s.id = 'tseg' + i;
+    bar.appendChild(s);
+  }}
+}})();
+
+// ── Model selector
+function selectModel(idx) {{
+  document.querySelectorAll('.mtab').forEach((b, i) =>
+    b.classList.toggle('active', i === idx));
+  const m = MODELS_DATA[idx];
+  document.getElementById('m-f1').textContent    = m.f1;
+  document.getElementById('m-prec').textContent  = m.prec;
+  document.getElementById('m-rec').textContent   = m.rec;
+  document.getElementById('m-auc').textContent   = m.auc;
+  document.getElementById('m-acc').textContent   = m.acc;
+  document.getElementById('m-epoch').textContent = m.epoch;
+}}
+
+// ── Canvas sync
+function sync() {{
+  const r = img.getBoundingClientRect();
+  canvas.width  = Math.round(r.width)  || img.naturalWidth;
+  canvas.height = Math.round(r.height) || img.naturalHeight;
+}}
+
+// ── Draw overlays
+function draw() {{
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!scanned) return;
+  const W = canvas.width, H = canvas.height;
+  BUILDINGS.forEach((b, i) => {{
+    const x = b.x*W, y = b.y*H, w = b.w*W, h = b.h*H;
+    const hov = i === hovId;
+    ctx.fillStyle   = (hov ? HFILLS : FILLS)[b.label] + (hov ? '44' : '28');
+    ctx.strokeStyle = (hov ? HFILLS : FILLS)[b.label];
+    ctx.lineWidth   = hov ? 1.5 : 0.8;
+    ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
+    if (hov) {{
+      ctx.fillStyle = HFILLS[b.label];
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText(Math.round(b.confidence*100)+'%', x+3, y+10);
+    }}
+  }});
+}}
+
+// ── Stats update
+function updateStats() {{
+  const cnt = [0,0,0,0];
+  BUILDINGS.forEach(b => cnt[b.label]++);
+  const tot = cnt.reduce((a,v)=>a+v,0) || 1;
+
+  const dist = document.getElementById('sddist');
+  dist.innerHTML = '';
+  [0,1,2,3].forEach(i => {{
+    const filled = Math.round(cnt[i]/tot * NDSEG);
+    let segs = '';
+    for (let s=0;s<NDSEG;s++)
+      segs += `<div class="dist-seg" style="background:${{s<filled?HFILLS[i]:'#060e18'}}"></div>`;
+    dist.innerHTML += `
+      <div class="dist-row">
+        <div class="dist-hdr">
+          <span style="color:${{HFILLS[i]}}">${{LABELS[i]}}</span>
+          <span style="color:#40c8ff">${{cnt[i]}}</span>
+        </div>
+        <div class="dist-segs">${{segs}}</div>
+      </div>`;
+  }});
+
+  const dpct = Math.round((cnt[1]+cnt[2]+cnt[3])/tot*100);
+  const filledSegs = Math.round(dpct/100*NSEGS);
+  const [lbl,col] = dpct<10?['LOW','#00ff88']:dpct<25?['MODERATE','#ffdd00']:
+                    dpct<45?['HIGH','#ff6600']:['CRITICAL','#ff2222'];
+  for (let i=0;i<NSEGS;i++) {{
+    const s = document.getElementById('tseg'+i);
+    s.style.background = i<filledSegs ? col : '#060e18';
+    s.style.boxShadow  = i<filledSegs ? `0 0 4px ${{col}}88` : 'none';
+  }}
+  const tl = document.getElementById('sdtlabel');
+  tl.textContent = lbl; tl.style.color = col;
+  tl.style.textShadow = `0 0 10px ${{col}}88`;
+  tl.className = lbl==='CRITICAL'?'critical':'';
+  document.getElementById('sdtpct').textContent = dpct+'% STRUCTURES AFFECTED';
+}}
+
+// ── Scan animation
+window.runScan = function() {{
+  if (!scanned) {{ scanned = true; sync(); }}
+  document.getElementById('sdstatus').textContent = 'SCANNING...';
+  PBAR.classList.remove('done');
+  PBAR.style.width = '0%';
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const W = canvas.width, H = canvas.height;
+  let y = 0;
+  const revealed = new Set(), flashTime = {{}};
+
+  (function step() {{
+    y += 5;
+    ctx.clearRect(0,0,W,H);
+
+    BUILDINGS.forEach((b,i) => {{
+      if ((b.y+b.h)*H > y) return;
+      if (!revealed.has(i)) {{ revealed.add(i); flashTime[i]=Date.now(); }}
+      const bx=b.x*W,by=b.y*H,bw=b.w*W,bh=b.h*H;
+      const flash = Date.now()-(flashTime[i]||0) < 220
+        ? (1-(Date.now()-(flashTime[i]||0))/220) : 0;
+      if (flash>0) {{
+        ctx.save(); ctx.globalAlpha=0.3+flash*0.7;
+        ctx.fillStyle=HFILLS[b.label]+'cc';
+        ctx.fillRect(bx,by,bw,bh); ctx.restore();
+      }}
+      ctx.fillStyle=FILLS[b.label]+'28';
+      ctx.strokeStyle=FILLS[b.label]; ctx.lineWidth=0.8;
+      ctx.fillRect(bx,by,bw,bh); ctx.strokeRect(bx,by,bw,bh);
+    }});
+
+    // Trailing gradient
+    if (y>0) {{
+      const tt = Math.max(0,y-H*0.28);
+      const g = ctx.createLinearGradient(0,tt,0,y);
+      g.addColorStop(0,'rgba(0,255,136,0)');
+      g.addColorStop(1,'rgba(0,255,136,0.045)');
+      ctx.fillStyle=g; ctx.fillRect(0,tt,W,y-tt);
+    }}
+    // Scan line
+    ctx.save();
+    ctx.shadowColor='#00ff88'; ctx.shadowBlur=10;
+    ctx.fillStyle='rgba(0,255,136,0.95)';
+    ctx.fillRect(0,y-2,W,3);
+    ctx.restore();
+
+    // Progress bar
+    PBAR.style.width = Math.min(100, y/H*100) + '%';
+
+    if (y < H+10) {{ requestAnimationFrame(step); }}
+    else {{
+      draw();
+      document.getElementById('sdstatus').textContent =
+        'COMPLETE // '+BUILDINGS.length+' STRUCTURES';
+      PBAR.style.width = '100%';
+      PBAR.classList.add('done');
+      updateStats();
+      ['c-tl','c-tr','c-bl','c-br'].forEach((id,i) =>
+        setTimeout(()=>document.getElementById(id).classList.add('scanned'), i*90));
+    }}
+  }})();
+}};
+
+// ── Lock-on
+function showLockOn(b) {{
+  LOCKON.style.left=(b.x*100)+'%'; LOCKON.style.top=(b.y*100)+'%';
+  LOCKON.style.width=(b.w*100)+'%'; LOCKON.style.height=(b.h*100)+'%';
+  LOCKON.className=''; void LOCKON.offsetWidth;
+  LOCKON.className='lockon active';
+}}
+
+// ── Mouse events
+canvas.addEventListener('mousemove', e => {{
+  const r=canvas.getBoundingClientRect();
+  const mx=(e.clientX-r.left)*(canvas.width/r.width);
+  const my=(e.clientY-r.top)*(canvas.height/r.height);
+  document.getElementById('sdcoord').innerHTML='X:'+Math.round(mx)+'&nbsp;&nbsp;Y:'+Math.round(my);
+  let found=-1;
+  if (scanned) BUILDINGS.forEach((b,i) => {{
+    if (mx>=b.x*canvas.width&&mx<=(b.x+b.w)*canvas.width&&
+        my>=b.y*canvas.height&&my<=(b.y+b.h)*canvas.height) found=i;
+  }});
+  if (found!==hovId) {{
+    hovId=found; draw();
+    if (found>=0) showLockOn(BUILDINGS[found]);
+    else LOCKON.className='lockon';
+  }}
+  if (found>=0) {{
+    const b=BUILDINGS[found];
+    TIP.style.cssText=`position:absolute;display:block;
+      left:${{Math.min(e.clientX-r.left+14,r.width-150)}}px;
+      top:${{Math.max(e.clientY-r.top-60,4)}}px;pointer-events:none;z-index:20`;
+    document.getElementById('tip-id').textContent='#'+String(found).padStart(4,'0');
+    document.getElementById('tip-lbl').style.color=HFILLS[b.label];
+    document.getElementById('tip-lbl').textContent=LABELS[b.label];
+    document.getElementById('tip-conf').textContent=Math.round(b.confidence*100)+'%';
+  }} else {{ TIP.style.display='none'; }}
+}});
+canvas.addEventListener('mouseleave',()=>{{
+  hovId=-1; TIP.style.display='none'; LOCKON.className='lockon'; draw();
+}});
+img.addEventListener('load',sync);
+if (img.complete) sync();
+</script>
+"""
+
+
+# ─────────────────────────────────────────────
+# STREAMLIT UI
+# ─────────────────────────────────────────────
+
+col_pre, col_post = st.columns(2)
+with col_pre:
+    uploaded_pre = st.file_uploader(
+        "pre", type=["png","jpg","jpeg","tif","tiff"],
+        label_visibility="collapsed",
+    )
+    st.caption("PRE-DISASTER IMAGE (OPTIONAL)")
+with col_post:
+    uploaded_post = st.file_uploader(
+        "post", type=["png","jpg","jpeg","tif","tiff"],
+        label_visibility="collapsed",
+    )
+    st.caption("POST-DISASTER IMAGE (REQUIRED)")
+
+if uploaded_post is None:
+    st.markdown(
+        "<div style='text-align:center;padding:4rem;color:#0a3050;"
+        "font-family:monospace;font-size:11px;letter-spacing:3px;"
+        "background:rgba(5,12,20,0.88);border:0.5px solid #0a2a4a;"
+        "clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%);'>"
+        "[ AWAITING SATELLITE FEED ]<br><br>"
+        "<span style='font-size:9px;color:#061828;letter-spacing:2px'>"
+        "UPLOAD POST-DISASTER IMAGE TO BEGIN ASSESSMENT</span></div>",
+        unsafe_allow_html=True,
+    )
+    st.stop()
+
+post_img = Image.open(uploaded_post).convert("RGB")
+post_b64 = pil_to_b64(post_img, max_w=600)
+
+pre_b64 = None
+if uploaded_pre is not None:
+    pre_b64 = pil_to_b64(Image.open(uploaded_pre).convert("RGB"), max_w=600)
+
+buildings   = predict(post_img, seed=hash(uploaded_post.name) % 9999)
+gradcam_b64 = generate_gradcam(post_img, buildings)
+
+hud_html = build_hud(pre_b64, gradcam_b64, post_b64, buildings, MODELS)
+
+st.components.v1.html(hud_html, height=620, scrolling=False)
+
+with st.expander("Raw predictions"):
+    st.json(buildings)
