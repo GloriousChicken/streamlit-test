@@ -348,7 +348,7 @@ def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
     margin-top:4px;font-size:9px;color:#1a5070;letter-spacing:1px;
   }}
 
-  /* === THREAT LEVEL === */
+  /* === DAMAGE LEVEL === */
   #sdtlabel {{font-size:18px;font-weight:700;letter-spacing:3px;margin-bottom:8px;color:#1a5070}}
   @keyframes critPulse {{
     0%,100%{{text-shadow:0 0 6px currentColor}}
@@ -473,7 +473,7 @@ def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
     <!-- STATS COLUMN -->
     <div class="sdcol">
       <div class="sdp">
-        <div class="sdl">THREAT LEVEL</div>
+        <div class="sdl">DAMAGE LEVEL</div>
         <div id="sdtlabel">—</div>
         <div class="seg-bar" id="sdtsegs"></div>
         <div id="sdtpct">run scan first</div>
