@@ -84,6 +84,17 @@ st.markdown("""
   [data-testid="stFileUploaderDropzone"] svg { display:none !important; }
   [data-testid="stFileUploaderDropzone"] small { display:none !important; }
   [data-testid="stFileUploaderDropzone"] span  { display:none !important; }
+  /* injected label */
+  [data-testid="stFileUploaderDropzone"]::before {
+    content: '[ DRAG FILES HERE ]';
+    display: block;
+    font-family: monospace !important;
+    font-size: 9px !important;
+    letter-spacing: 1.5px !important;
+    color: #1a5070 !important;
+    text-align: center;
+    margin-bottom: 4px;
+  }
   /* keep the Browse button visible */
   [data-testid="stFileUploaderDropzone"] button {
     font-family: monospace !important;
