@@ -74,7 +74,12 @@ st.markdown("""
     border: 1px solid #0a2a4a !important;
     border-radius: 0 !important;
     padding: 5px 10px !important;
-    min-height: 0 !important;
+    min-height: 60px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 4px !important;
   }
   [data-testid="stFileUploaderDropzone"]:hover {
     border-color: #40c8ff !important;
@@ -92,8 +97,7 @@ st.markdown("""
     font-size: 9px !important;
     letter-spacing: 1.5px !important;
     color: #1a5070 !important;
-    text-align: center;
-    margin-bottom: 4px;
+    white-space: nowrap !important;
   }
   /* keep the Browse button visible */
   [data-testid="stFileUploaderDropzone"] button {
