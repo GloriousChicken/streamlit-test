@@ -714,7 +714,7 @@ if (img.complete) sync();
 # ─────────────────────────────────────────────
 
 # ── Input source selector
-sample_labels = ["— UPLOAD YOUR OWN IMAGES —"] + [s["label"] for s in SAMPLE_PAIRS]
+sample_labels = ["— UPLOAD YOUR OWN IMAGES OR SELECT SAMPLES —"] + [s["label"] for s in SAMPLE_PAIRS]
 selected_label = st.selectbox(
     "input_source",
     sample_labels,
