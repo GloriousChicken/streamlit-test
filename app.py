@@ -11,6 +11,24 @@ import base64
 import io
 
 from dummy_predictor import predict, DAMAGE_CLASSES
+from pathlib import Path
+
+# ── Sample pairs bundled in samples/
+_SAMPLES_DIR = Path(__file__).parent / "samples"
+SAMPLE_PAIRS = [
+    {
+        "label": "HURRICANE HARVEY // 00000137",
+        "pre":  _SAMPLES_DIR / "challenge_train_images_hurricane-harvey_00000137_pre_disaster.png",
+        "post": _SAMPLES_DIR / "challenge_train_images_hurricane-harvey_00000137_post_disaster.png",
+        "seed": 137,
+    },
+    {
+        "label": "HURRICANE MICHAEL // 00000003",
+        "pre":  _SAMPLES_DIR / "challenge_train_images_hurricane-michael_00000003_pre_disaster.png",
+        "post": _SAMPLES_DIR / "challenge_train_images_hurricane-michael_00000003_post_disaster.png",
+        "seed": 3,
+    },
+]
 
 # ── Model registry (metrics display only — swap for real values)
 MODELS = [
@@ -695,41 +713,61 @@ if (img.complete) sync();
 # STREAMLIT UI
 # ─────────────────────────────────────────────
 
-col_pre, col_post = st.columns(2)
-with col_pre:
-    uploaded_pre = st.file_uploader(
-        "pre", type=["png","jpg","jpeg","tif","tiff"],
-        label_visibility="collapsed",
-    )
-    st.caption("PRE-DISASTER IMAGE (OPTIONAL)")
-with col_post:
-    uploaded_post = st.file_uploader(
-        "post", type=["png","jpg","jpeg","tif","tiff"],
-        label_visibility="collapsed",
-    )
-    st.caption("POST-DISASTER IMAGE (REQUIRED)")
+# ── Input source selector
+sample_labels = ["— UPLOAD YOUR OWN IMAGES —"] + [s["label"] for s in SAMPLE_PAIRS]
+selected_label = st.selectbox(
+    "input_source",
+    sample_labels,
+    label_visibility="collapsed",
+)
 
-if uploaded_post is None:
-    st.markdown(
-        "<div style='text-align:center;padding:4rem;color:#0a3050;"
-        "font-family:monospace;font-size:11px;letter-spacing:3px;"
-        "background:rgba(5,12,20,0.88);border:0.5px solid #0a2a4a;"
-        "clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%);'>"
-        "[ AWAITING SATELLITE FEED ]<br><br>"
-        "<span style='font-size:9px;color:#061828;letter-spacing:2px'>"
-        "UPLOAD POST-DISASTER IMAGE TO BEGIN ASSESSMENT</span></div>",
-        unsafe_allow_html=True,
-    )
-    st.stop()
+sample_idx = sample_labels.index(selected_label) - 1  # -1 → upload mode
 
-post_img = Image.open(uploaded_post).convert("RGB")
-post_b64 = pil_to_b64(post_img, max_w=600)
+if sample_idx >= 0:
+    # ── Sample pair mode
+    pair = SAMPLE_PAIRS[sample_idx]
+    post_img = Image.open(pair["post"]).convert("RGB")
+    pre_img  = Image.open(pair["pre"]).convert("RGB")
+    post_b64 = pil_to_b64(post_img, max_w=600)
+    pre_b64  = pil_to_b64(pre_img, max_w=600)
+    seed     = pair["seed"]
+else:
+    # ── Upload mode
+    col_pre, col_post = st.columns(2)
+    with col_pre:
+        uploaded_pre = st.file_uploader(
+            "pre", type=["png","jpg","jpeg","tif","tiff"],
+            label_visibility="collapsed",
+        )
+        st.caption("PRE-DISASTER IMAGE (OPTIONAL)")
+    with col_post:
+        uploaded_post = st.file_uploader(
+            "post", type=["png","jpg","jpeg","tif","tiff"],
+            label_visibility="collapsed",
+        )
+        st.caption("POST-DISASTER IMAGE (REQUIRED)")
 
-pre_b64 = None
-if uploaded_pre is not None:
-    pre_b64 = pil_to_b64(Image.open(uploaded_pre).convert("RGB"), max_w=600)
+    if uploaded_post is None:
+        st.markdown(
+            "<div style='text-align:center;padding:4rem;color:#0a3050;"
+            "font-family:monospace;font-size:11px;letter-spacing:3px;"
+            "background:rgba(5,12,20,0.88);border:0.5px solid #0a2a4a;"
+            "clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%);'>"
+            "[ AWAITING SATELLITE FEED ]<br><br>"
+            "<span style='font-size:9px;color:#061828;letter-spacing:2px'>"
+            "UPLOAD POST-DISASTER IMAGE TO BEGIN ASSESSMENT</span></div>",
+            unsafe_allow_html=True,
+        )
+        st.stop()
 
-buildings   = predict(post_img, seed=hash(uploaded_post.name) % 9999)
+    post_img = Image.open(uploaded_post).convert("RGB")
+    post_b64 = pil_to_b64(post_img, max_w=600)
+    pre_b64  = None
+    if uploaded_pre is not None:
+        pre_b64 = pil_to_b64(Image.open(uploaded_pre).convert("RGB"), max_w=600)
+    seed = hash(uploaded_post.name) % 9999
+
+buildings   = predict(post_img, seed=seed)
 gradcam_b64 = generate_gradcam(post_img, buildings)
 
 hud_html = build_hud(pre_b64, gradcam_b64, post_b64, buildings, MODELS)
