@@ -13,6 +13,36 @@ import io
 from dummy_predictor import predict, classify_outlines, DAMAGE_CLASSES
 from api_predictor import predict_api
 from pathlib import Path
+import re
+
+SUBTYPE_MAP = {"no-damage": 0, "minor-damage": 1, "major-damage": 2, "destroyed": 3}
+
+def parse_xbd_json(raw: dict, is_pre: bool = False) -> list:
+    """Parse xBD-format JSON into list of {x, y, w, h, [label, confidence]} dicts."""
+    meta = raw["metadata"]
+    W, H = float(meta["width"]), float(meta["height"])
+    buildings = []
+    for feat in raw["features"]["xy"]:
+        wkt = feat["wkt"]
+        coords_str = re.search(r'POLYGON\s*\(\((.+?)\)\)', wkt)
+        if not coords_str:
+            continue
+        pairs = coords_str.group(1).split(",")
+        xs, ys = [], []
+        for pair in pairs:
+            parts = pair.strip().split()
+            xs.append(float(parts[0]))
+            ys.append(float(parts[1]))
+        bld = {
+            "x": min(xs) / W, "y": min(ys) / H,
+            "w": (max(xs) - min(xs)) / W, "h": (max(ys) - min(ys)) / H,
+        }
+        if not is_pre:
+            sub = feat.get("properties", {}).get("subtype", "no-damage")
+            bld["label"] = SUBTYPE_MAP.get(sub, 0)
+            bld["confidence"] = 1.0  # ground truth
+        buildings.append(bld)
+    return buildings
 
 # ── Sample pairs bundled in samples/
 _SAMPLES_DIR = Path(__file__).parent / "samples"
@@ -21,12 +51,16 @@ SAMPLE_PAIRS = [
         "label": "HURRICANE HARVEY // 00000137",
         "pre":  _SAMPLES_DIR / "challenge_train_images_hurricane-harvey_00000137_pre_disaster.png",
         "post": _SAMPLES_DIR / "challenge_train_images_hurricane-harvey_00000137_post_disaster.png",
+        "pre_json":  _SAMPLES_DIR / "challenge_train_labels_hurricane-harvey_00000137_pre_disaster.json",
+        "post_json": _SAMPLES_DIR / "challenge_train_labels_hurricane-harvey_00000137_post_disaster.json",
         "seed": 137,
     },
     {
         "label": "HURRICANE MICHAEL // 00000003",
         "pre":  _SAMPLES_DIR / "challenge_train_images_hurricane-michael_00000003_pre_disaster.png",
         "post": _SAMPLES_DIR / "challenge_train_images_hurricane-michael_00000003_post_disaster.png",
+        "pre_json":  _SAMPLES_DIR / "challenge_train_labels_hurricane-michael_00000003_pre_disaster.json",
+        "post_json": _SAMPLES_DIR / "challenge_train_labels_hurricane-michael_00000003_post_disaster.json",
         "seed": 3,
     },
 ]
@@ -214,15 +248,18 @@ def generate_diff_map(pre_img, post_img: Image.Image) -> str | None:
 
 def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
               diff_b64: str | None, post_b64: str,
-              buildings: list, models: list, event_name: str = "—") -> str:
+              buildings: list, pre_buildings: list,
+              models: list, event_name: str = "—") -> str:
 
     buildings_json = json.dumps(buildings)
+    pre_buildings_json = json.dumps(pre_buildings)
     models_json    = json.dumps(models)
 
     pre_html = f"""
-      <div class="imgbox-static">
-        <img src="data:image/png;base64,{pre_b64}"
+      <div id="pre-imgbox">
+        <img id="pre-sdimg" src="data:image/png;base64,{pre_b64}"
              style="max-width:100%;max-height:280px;width:auto;height:auto;display:block;opacity:.85"/>
+        <canvas id="pre-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></canvas>
         <div class="corner tl"></div><div class="corner tr"></div>
         <div class="corner bl"></div><div class="corner br"></div>
       </div>""" if pre_b64 else """
@@ -269,6 +306,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
   .sdgrid.no-analysis {{grid-template-columns:1fr 1fr 210px}}
   .sdgrid.no-analysis .analysis-col {{display:none}}
   .sdgrid.no-analysis .imgbox-static img,
+  .sdgrid.no-analysis #pre-sdimg,
   .sdgrid.no-analysis #sdimg {{max-height:420px !important}}
   .sdcol  {{display:flex;flex-direction:column;gap:8px}}
   .sdrow  {{
@@ -347,6 +385,10 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     border:0.5px solid #0a3050;overflow:hidden;
   }}
   #imgbox {{
+    display:inline-block;position:relative;line-height:0;max-width:100%;
+    border:0.5px solid #0a3050;overflow:hidden;
+  }}
+  #pre-imgbox {{
     display:inline-block;position:relative;line-height:0;max-width:100%;
     border:0.5px solid #0a3050;overflow:hidden;
   }}
@@ -574,6 +616,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
 
 <script>
 const BUILDINGS   = {buildings_json};
+const PRE_BUILDINGS = {pre_buildings_json};
 const MODELS_DATA = {models_json};
 const FILLS  = ['#00cc66','#ccaa00','#cc4400','#aa0000'];
 const HFILLS = ['#00ff88','#ffdd00','#ff6600','#ff2222'];
@@ -587,6 +630,10 @@ const ctx    = canvas.getContext('2d');
 const TIP    = document.getElementById('sdtip');
 const LOCKON = document.getElementById('lockon');
 const PBAR   = document.getElementById('pbar');
+
+const preImg    = document.getElementById('pre-sdimg');
+const preCanvas = document.getElementById('pre-overlay');
+const preCtx    = preCanvas ? preCanvas.getContext('2d') : null;
 
 let scanned = false;
 let hovId   = -1;
@@ -633,12 +680,34 @@ function toggleAnalysis() {{
   btn.classList.toggle('active');
   sync();
   draw();
+  syncPre();
+  drawPre();
 }}
 
 function sync() {{
   const r = img.getBoundingClientRect();
   canvas.width  = Math.round(r.width)  || img.naturalWidth;
   canvas.height = Math.round(r.height) || img.naturalHeight;
+}}
+
+function syncPre() {{
+  if (!preImg || !preCanvas) return;
+  const r = preImg.getBoundingClientRect();
+  preCanvas.width  = Math.round(r.width)  || preImg.naturalWidth;
+  preCanvas.height = Math.round(r.height) || preImg.naturalHeight;
+}}
+
+function drawPre() {{
+  if (!preCtx) return;
+  preCtx.clearRect(0, 0, preCanvas.width, preCanvas.height);
+  const W = preCanvas.width, H = preCanvas.height;
+  PRE_BUILDINGS.forEach(b => {{
+    preCtx.fillStyle = '#40c8ff28';
+    preCtx.strokeStyle = '#40c8ff';
+    preCtx.lineWidth = 0.8;
+    preCtx.fillRect(b.x*W, b.y*H, b.w*W, b.h*H);
+    preCtx.strokeRect(b.x*W, b.y*H, b.w*W, b.h*H);
+  }});
 }}
 
 // ── Draw overlays
@@ -752,6 +821,7 @@ window.runScan = function() {{
     if (y < H+10) {{ requestAnimationFrame(step); }}
     else {{
       draw();
+      syncPre(); drawPre();
       document.getElementById('sdstatus').textContent =
         'COMPLETE // '+BUILDINGS.length+' STRUCTURES';
       PBAR.style.width = '100%';
@@ -803,6 +873,10 @@ canvas.addEventListener('mouseleave',()=>{{
 }});
 img.addEventListener('load',sync);
 if (img.complete) sync();
+if (preImg) {{
+  preImg.addEventListener('load', () => {{ syncPre(); drawPre(); }});
+  if (preImg.complete) {{ syncPre(); drawPre(); }}
+}}
 </script>
 """
 
@@ -832,6 +906,8 @@ sample_idx = sample_labels.index(selected_label) - 1  # -1 → upload mode
 parsed_outlines = None
 outlines_have_labels = False
 
+pre_buildings = []
+
 if sample_idx >= 0:
     # ── Sample pair mode
     pair = SAMPLE_PAIRS[sample_idx]
@@ -841,9 +917,20 @@ if sample_idx >= 0:
     pre_b64    = pil_to_b64(pre_img, max_w=600)
     seed       = pair["seed"]
     event_name = pair["label"]
+
+    # ── Load bundled xBD JSONs if available
+    if pair.get("pre_json") and pair["pre_json"].exists():
+        raw_pre = json.loads(pair["pre_json"].read_text())
+        if isinstance(raw_pre, dict) and "features" in raw_pre:
+            pre_buildings = parse_xbd_json(raw_pre, is_pre=True)
+    if pair.get("post_json") and pair["post_json"].exists():
+        raw_post = json.loads(pair["post_json"].read_text())
+        if isinstance(raw_post, dict) and "features" in raw_post:
+            parsed_outlines = parse_xbd_json(raw_post, is_pre=False)
+            outlines_have_labels = True
 else:
     # ── Upload mode
-    col_pre, col_post, col_json = st.columns(3)
+    col_pre, col_post = st.columns(2)
     with col_pre:
         uploaded_pre = st.file_uploader(
             "pre", type=["png","jpg","jpeg","tif","tiff"],
@@ -856,12 +943,19 @@ else:
             label_visibility="collapsed",
         )
         st.caption("POST-DISASTER IMAGE (REQUIRED)")
-    with col_json:
-        uploaded_json = st.file_uploader(
-            "outlines", type=["json"],
+    col_pre_json, col_post_json = st.columns(2)
+    with col_pre_json:
+        uploaded_pre_json = st.file_uploader(
+            "pre_json", type=["json"],
             label_visibility="collapsed",
         )
-        st.caption("BUILDING OUTLINES (JSON)")
+        st.caption("PRE-DISASTER JSON (OPTIONAL)")
+    with col_post_json:
+        uploaded_post_json = st.file_uploader(
+            "post_json", type=["json"],
+            label_visibility="collapsed",
+        )
+        st.caption("POST-DISASTER JSON (OPTIONAL)")
 
     if uploaded_post is None:
         st.markdown(
@@ -886,31 +980,52 @@ else:
     seed       = hash(uploaded_post.name) % 9999
     event_name = uploaded_post.name.upper()
 
-    # ── Parse uploaded JSON outlines (upload mode only)
+    # ── Parse uploaded post JSON outlines (upload mode only)
     parsed_outlines = None
     outlines_have_labels = False
-    if uploaded_json is not None:
+    if uploaded_post_json is not None:
         try:
-            raw = json.loads(uploaded_json.getvalue())
-            if not isinstance(raw, list):
-                raise ValueError("JSON must be a list of objects")
-            required_keys = {"x", "y", "w", "h"}
-            for i, entry in enumerate(raw):
-                if not isinstance(entry, dict):
-                    raise ValueError(f"Entry {i} is not an object")
-                missing = required_keys - entry.keys()
-                if missing:
-                    raise ValueError(f"Entry {i} missing keys: {missing}")
-                for k in ("x", "y", "w", "h"):
-                    v = float(entry[k])
-                    if not (0.0 <= v <= 1.0):
-                        raise ValueError(f"Entry {i}: {k}={v} not in 0–1")
-            parsed_outlines = raw
-            outlines_have_labels = all(
-                "label" in e and "confidence" in e for e in raw
-            )
+            raw = json.loads(uploaded_post_json.getvalue())
+            if isinstance(raw, dict) and "features" in raw:
+                # xBD format
+                parsed_outlines = parse_xbd_json(raw, is_pre=False)
+                outlines_have_labels = True
+            elif isinstance(raw, list):
+                # flat-list format (backward compatible)
+                required_keys = {"x", "y", "w", "h"}
+                for i, entry in enumerate(raw):
+                    if not isinstance(entry, dict):
+                        raise ValueError(f"Entry {i} is not an object")
+                    missing = required_keys - entry.keys()
+                    if missing:
+                        raise ValueError(f"Entry {i} missing keys: {missing}")
+                    for k in ("x", "y", "w", "h"):
+                        v = float(entry[k])
+                        if not (0.0 <= v <= 1.0):
+                            raise ValueError(f"Entry {i}: {k}={v} not in 0–1")
+                parsed_outlines = raw
+                outlines_have_labels = all(
+                    "label" in e and "confidence" in e for e in raw
+                )
+            else:
+                raise ValueError("JSON must be a list or xBD-format dict")
         except (json.JSONDecodeError, ValueError, TypeError) as exc:
-            st.error(f"Invalid building-outline JSON: {exc}")
+            st.error(f"Invalid post-disaster JSON: {exc}")
+
+    # ── Parse uploaded pre JSON outlines
+    if uploaded_pre_json is not None:
+        try:
+            raw = json.loads(uploaded_pre_json.getvalue())
+            if isinstance(raw, dict) and "features" in raw:
+                pre_buildings = parse_xbd_json(raw, is_pre=True)
+            elif isinstance(raw, list):
+                pre_buildings = [
+                    {"x": float(e["x"]), "y": float(e["y"]),
+                     "w": float(e["w"]), "h": float(e["h"])}
+                    for e in raw
+                ]
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            st.error(f"Invalid pre-disaster JSON: {exc}")
 
 # ── Prediction
 if parsed_outlines is not None and outlines_have_labels:
@@ -947,9 +1062,9 @@ heatmap_b64    = generate_damage_heatmap(post_img, buildings)
 confidence_b64 = generate_confidence_map(post_img, buildings)
 diff_b64       = generate_diff_map(pre_img, post_img)
 
-hud_html = build_hud(pre_b64, heatmap_b64, confidence_b64, diff_b64, post_b64, buildings, MODELS, event_name)
+hud_html = build_hud(pre_b64, heatmap_b64, confidence_b64, diff_b64, post_b64, buildings, pre_buildings, MODELS, event_name)
 
 st.components.v1.html(hud_html, height=620, scrolling=False)
 
 with st.expander("Raw predictions"):
-    st.json(buildings)
+    st.json({"post_buildings": buildings, "pre_buildings": pre_buildings})
