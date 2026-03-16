@@ -546,7 +546,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
           <img id="sdimg" src="data:image/png;base64,{post_b64}"
                style="max-width:100%;max-height:280px;width:auto;height:auto;display:block;opacity:.85"/>
           <canvas id="sdoverlay"
-                  style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:none"></canvas>
+                  style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair"></canvas>
           <div class="corner tl" id="c-tl"></div>
           <div class="corner tr" id="c-tr"></div>
           <div class="corner bl" id="c-bl"></div>
