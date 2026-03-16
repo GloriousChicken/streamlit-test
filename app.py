@@ -10,7 +10,8 @@ from PIL import Image
 import base64
 import io
 
-from dummy_predictor import predict, DAMAGE_CLASSES
+from dummy_predictor import predict, classify_outlines, DAMAGE_CLASSES
+from api_predictor import predict_api
 from pathlib import Path
 
 # ── Sample pairs bundled in samples/
@@ -728,6 +729,14 @@ if (img.complete) sync();
 # STREAMLIT UI
 # ─────────────────────────────────────────────
 
+# ── Prediction source selector
+pred_source = st.radio(
+    "prediction_source",
+    ["DUMMY PREDICTOR", "API (DOCKER)"],
+    horizontal=True,
+    label_visibility="collapsed",
+)
+
 # ── Input source selector
 sample_labels = ["— UPLOAD YOUR OWN IMAGES OR SELECT SAMPLES —"] + [s["label"] for s in SAMPLE_PAIRS]
 selected_label = st.selectbox(
@@ -737,6 +746,9 @@ selected_label = st.selectbox(
 )
 
 sample_idx = sample_labels.index(selected_label) - 1  # -1 → upload mode
+
+parsed_outlines = None
+outlines_have_labels = False
 
 if sample_idx >= 0:
     # ── Sample pair mode
@@ -749,7 +761,7 @@ if sample_idx >= 0:
     event_name = pair["label"]
 else:
     # ── Upload mode
-    col_pre, col_post = st.columns(2)
+    col_pre, col_post, col_json = st.columns(3)
     with col_pre:
         uploaded_pre = st.file_uploader(
             "pre", type=["png","jpg","jpeg","tif","tiff"],
@@ -762,6 +774,12 @@ else:
             label_visibility="collapsed",
         )
         st.caption("POST-DISASTER IMAGE (REQUIRED)")
+    with col_json:
+        uploaded_json = st.file_uploader(
+            "outlines", type=["json"],
+            label_visibility="collapsed",
+        )
+        st.caption("BUILDING OUTLINES (JSON)")
 
     if uploaded_post is None:
         st.markdown(
@@ -784,7 +802,63 @@ else:
     seed       = hash(uploaded_post.name) % 9999
     event_name = uploaded_post.name.upper()
 
-buildings   = predict(post_img, seed=seed)
+    # ── Parse uploaded JSON outlines (upload mode only)
+    parsed_outlines = None
+    outlines_have_labels = False
+    if uploaded_json is not None:
+        try:
+            raw = json.loads(uploaded_json.getvalue())
+            if not isinstance(raw, list):
+                raise ValueError("JSON must be a list of objects")
+            required_keys = {"x", "y", "w", "h"}
+            for i, entry in enumerate(raw):
+                if not isinstance(entry, dict):
+                    raise ValueError(f"Entry {i} is not an object")
+                missing = required_keys - entry.keys()
+                if missing:
+                    raise ValueError(f"Entry {i} missing keys: {missing}")
+                for k in ("x", "y", "w", "h"):
+                    v = float(entry[k])
+                    if not (0.0 <= v <= 1.0):
+                        raise ValueError(f"Entry {i}: {k}={v} not in 0–1")
+            parsed_outlines = raw
+            outlines_have_labels = all(
+                "label" in e and "confidence" in e for e in raw
+            )
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            st.error(f"Invalid building-outline JSON: {exc}")
+
+# ── Prediction
+if parsed_outlines is not None and outlines_have_labels:
+    # JSON already has labels + confidence → use directly
+    buildings = [
+        {
+            "x": float(e["x"]),
+            "y": float(e["y"]),
+            "w": float(e["w"]),
+            "h": float(e["h"]),
+            "label": int(e["label"]),
+            "confidence": float(e["confidence"]),
+        }
+        for e in parsed_outlines
+    ]
+elif parsed_outlines is not None:
+    # JSON has outlines only → classify them
+    outlines_only = [
+        {"x": float(e["x"]), "y": float(e["y"]),
+         "w": float(e["w"]), "h": float(e["h"])}
+        for e in parsed_outlines
+    ]
+    if pred_source == "API (DOCKER)":
+        buildings = predict_api(post_img, seed=seed, outlines=outlines_only)
+    else:
+        buildings = classify_outlines(outlines_only, seed=seed)
+else:
+    # No JSON → full prediction (detect + classify)
+    if pred_source == "API (DOCKER)":
+        buildings = predict_api(post_img, seed=seed)
+    else:
+        buildings = predict(post_img, seed=seed)
 gradcam_b64 = generate_gradcam(post_img, buildings)
 
 hud_html = build_hud(pre_b64, gradcam_b64, post_b64, buildings, MODELS, event_name)

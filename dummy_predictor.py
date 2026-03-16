@@ -30,6 +30,29 @@ DAMAGE_CLASSES = {
 CLASS_WEIGHTS = [0.68, 0.12, 0.12, 0.08]
 
 
+def classify_outlines(outlines: List[Dict], seed: int = None) -> List[Dict]:
+    """
+    Assign random damage label + confidence to pre-supplied building outlines.
+
+    Each outline dict must have x, y, w, h.  Returns a new list with
+    label and confidence added.
+    """
+    if seed is not None:
+        random.seed(seed)
+
+    buildings = []
+    for o in outlines:
+        buildings.append({
+            "x": o["x"],
+            "y": o["y"],
+            "w": o["w"],
+            "h": o["h"],
+            "label": random.choices([0, 1, 2, 3], weights=CLASS_WEIGHTS)[0],
+            "confidence": round(random.uniform(0.55, 0.99), 2),
+        })
+    return buildings
+
+
 def predict(image: Image.Image, seed: int = None) -> List[Dict]:
     """
     Fake inference: generates a grid of building bounding boxes with random damage labels.
