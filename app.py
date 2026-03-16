@@ -158,8 +158,8 @@ def pil_to_b64(img: Image.Image, max_w: int = 600) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def generate_gradcam(post_img: Image.Image, buildings: list) -> str:
-    """Fake Grad-CAM: gaussian activation blobs colored by damage class."""
+def generate_damage_heatmap(post_img: Image.Image, buildings: list) -> str:
+    """Gaussian activation blobs colored by damage class."""
     w, h = post_img.size
     heat  = np.zeros((h, w, 3), dtype=np.float32)
     COLORS = [(0.0,0.95,0.45),(0.95,0.85,0.0),(0.95,0.32,0.0),(0.95,0.05,0.05)]
@@ -177,7 +177,43 @@ def generate_gradcam(post_img: Image.Image, buildings: list) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
+def generate_confidence_map(post_img: Image.Image, buildings: list) -> str:
+    """Single-color gradient (cyan/white) where intensity = confidence only."""
+    w, h = post_img.size
+    heat = np.zeros((h, w), dtype=np.float32)
+    yy, xx = np.mgrid[0:h, 0:w]
+    for b in buildings:
+        cx    = (b["x"] + b["w"] / 2) * w
+        cy    = (b["y"] + b["h"] / 2) * h
+        sigma = max(b["w"] * w, b["h"] * h) * 1.3 + 6
+        blob  = np.exp(-((xx-cx)**2+(yy-cy)**2) / (2*sigma**2)) * b["confidence"]
+        heat  = np.maximum(heat, blob)
+    # Cyan (0.25,0.78,1.0) → white (1,1,1) as intensity increases
+    rgb = np.zeros((h, w, 3), dtype=np.float32)
+    rgb[:,:,0] = 0.25 + heat * 0.75
+    rgb[:,:,1] = 0.78 + heat * 0.22
+    rgb[:,:,2] = 1.0
+    result = np.clip(np.array(post_img).astype(np.float32)/255.0 * 0.25 + rgb * heat[..., None] * 0.85, 0, 1)
+    buf = io.BytesIO()
+    Image.fromarray((result * 255).astype(np.uint8)).save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def generate_diff_map(pre_img, post_img: Image.Image) -> str | None:
+    """Absolute pixel difference between pre and post. Returns None if no pre."""
+    if pre_img is None:
+        return None
+    pre_arr  = np.array(pre_img.resize(post_img.size, Image.LANCZOS)).astype(np.float32)
+    post_arr = np.array(post_img).astype(np.float32)
+    diff = np.abs(post_arr - pre_arr)
+    diff = (diff / diff.max() * 255).astype(np.uint8) if diff.max() > 0 else diff.astype(np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(diff).save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
+def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
+              diff_b64: str | None, post_b64: str,
               buildings: list, models: list, event_name: str = "—") -> str:
 
     buildings_json = json.dumps(buildings)
@@ -263,6 +299,12 @@ def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
     background:rgba(0,60,100,0.5);border-color:#40c8ff;color:#40c8ff;
     box-shadow:0 0 8px #00aaff44;
   }}
+  .mtab.disabled {{
+    color:#0a1a2a;border-color:#0a1a2a;cursor:not-allowed;
+  }}
+  .mtab.disabled:hover {{
+    color:#0a1a2a;border-color:#0a1a2a;
+  }}
 
   /* === PROGRESS BAR === */
   #pbar-track {{
@@ -303,13 +345,6 @@ def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
     100%{{opacity:0.7;transform:scale(1)}}
   }}
   .corner.scanned {{animation:cornerSlideIn .4s ease-out forwards}}
-
-  /* SIMULATED badge */
-  .sim-badge {{
-    position:absolute;bottom:5px;right:5px;z-index:6;font-size:8px;letter-spacing:2px;
-    color:#ffdd0099;border:0.5px solid #ffdd0044;padding:2px 5px;
-    background:rgba(0,0,0,0.75);pointer-events:none;
-  }}
 
   /* === LOCK-ON === */
   .lockon {{position:absolute;pointer-events:none;display:none;z-index:8}}
@@ -411,7 +446,7 @@ def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
   <!-- SCAN PROGRESS BAR -->
   <div id="pbar-track"><div id="pbar"></div></div>
 
-  <!-- MAIN GRID: PRE | GRAD-CAM | POST+OVERLAY | STATS -->
+  <!-- MAIN GRID: PRE | ANALYSIS | POST+OVERLAY | STATS -->
   <div class="sdgrid">
 
     <!-- PRE-DISASTER -->
@@ -420,16 +455,24 @@ def build_hud(pre_b64: str | None, gradcam_b64: str, post_b64: str,
       <div class="img-wrapper">{pre_html}</div>
     </div>
 
-    <!-- GRAD-CAM -->
+    <!-- ANALYSIS TOOL -->
     <div class="sdp">
-      <div class="sdl">GRAD-CAM // ACTIVATION MAP</div>
+      <div class="sdl">ANALYSIS // <span id="analysis-label">DAMAGE HEATMAP</span></div>
+      <div class="model-tabs" id="analysis-tabs" style="margin-bottom:6px">
+        <button class="mtab active" onclick="selectAnalysis(0)">HEATMAP</button>
+        <button class="mtab" onclick="selectAnalysis(1)">CONFIDENCE</button>
+        <button class="mtab{' disabled' if diff_b64 is None else ''}" onclick="selectAnalysis(2)" id="diff-tab">DIFF</button>
+      </div>
       <div class="img-wrapper">
         <div class="imgbox-static">
-          <img src="data:image/png;base64,{gradcam_b64}"
+          <img id="analysis-0" src="data:image/png;base64,{heatmap_b64}"
                style="max-width:100%;max-height:280px;width:auto;height:auto;display:block"/>
+          <img id="analysis-1" src="data:image/png;base64,{confidence_b64}"
+               style="max-width:100%;max-height:280px;width:auto;height:auto;display:none"/>
+          <img id="analysis-2" src="{('data:image/png;base64,' + diff_b64) if diff_b64 else ''}"
+               style="max-width:100%;max-height:280px;width:auto;height:auto;display:none"/>
           <div class="corner tl"></div><div class="corner tr"></div>
           <div class="corner bl"></div><div class="corner br"></div>
-          <div class="sim-badge">SIMULATED</div>
         </div>
       </div>
     </div>
@@ -541,7 +584,7 @@ let hovId   = -1;
 
 // ── Model selector
 function selectModel(idx) {{
-  document.querySelectorAll('.mtab').forEach((b, i) =>
+  document.querySelectorAll('#model-tabs .mtab').forEach((b, i) =>
     b.classList.toggle('active', i === idx));
   const m = MODELS_DATA[idx];
   document.getElementById('m-f1').textContent    = m.f1;
@@ -550,6 +593,17 @@ function selectModel(idx) {{
   document.getElementById('m-auc').textContent   = m.auc;
   document.getElementById('m-acc').textContent   = m.acc;
   document.getElementById('m-epoch').textContent = m.epoch;
+}}
+
+// ── Analysis view selector
+const ANALYSIS_LABELS = ['DAMAGE HEATMAP','CONFIDENCE MAP','PRE / POST DIFF'];
+function selectAnalysis(idx) {{
+  if (idx === 2 && !document.getElementById('analysis-2').getAttribute('src')) return;
+  document.querySelectorAll('#analysis-tabs .mtab').forEach((b, i) =>
+    b.classList.toggle('active', i === idx));
+  [0,1,2].forEach(i =>
+    document.getElementById('analysis-'+i).style.display = i===idx ? 'block' : 'none');
+  document.getElementById('analysis-label').textContent = ANALYSIS_LABELS[idx];
 }}
 
 // ── Canvas sync
@@ -796,9 +850,11 @@ else:
 
     post_img = Image.open(uploaded_post).convert("RGB")
     post_b64 = pil_to_b64(post_img, max_w=600)
+    pre_img  = None
     pre_b64  = None
     if uploaded_pre is not None:
-        pre_b64 = pil_to_b64(Image.open(uploaded_pre).convert("RGB"), max_w=600)
+        pre_img = Image.open(uploaded_pre).convert("RGB")
+        pre_b64 = pil_to_b64(pre_img, max_w=600)
     seed       = hash(uploaded_post.name) % 9999
     event_name = uploaded_post.name.upper()
 
@@ -859,9 +915,11 @@ else:
         buildings = predict_api(post_img, seed=seed)
     else:
         buildings = predict(post_img, seed=seed)
-gradcam_b64 = generate_gradcam(post_img, buildings)
+heatmap_b64    = generate_damage_heatmap(post_img, buildings)
+confidence_b64 = generate_confidence_map(post_img, buildings)
+diff_b64       = generate_diff_map(pre_img, post_img)
 
-hud_html = build_hud(pre_b64, gradcam_b64, post_b64, buildings, MODELS, event_name)
+hud_html = build_hud(pre_b64, heatmap_b64, confidence_b64, diff_b64, post_b64, buildings, MODELS, event_name)
 
 st.components.v1.html(hud_html, height=620, scrolling=False)
 
