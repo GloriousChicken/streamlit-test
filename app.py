@@ -259,9 +259,25 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
       <div id="pre-imgbox">
         <img id="pre-sdimg" src="data:image/png;base64,{pre_b64}"
              style="max-width:100%;max-height:280px;width:auto;height:auto;display:block;opacity:.85"/>
-        <canvas id="pre-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none"></canvas>
+        <canvas id="pre-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair"></canvas>
         <div class="corner tl"></div><div class="corner tr"></div>
         <div class="corner bl"></div><div class="corner br"></div>
+        <div id="pre-lockon" class="lockon">
+          <div class="lo-corner lo-tl"></div><div class="lo-corner lo-tr"></div>
+          <div class="lo-corner lo-bl"></div><div class="lo-corner lo-br"></div>
+        </div>
+        <div id="pre-tip">
+          <div class="tip-hdr">
+            <span>STRUCTURE ID</span><span id="pre-tip-id">#0000</span>
+          </div>
+          <div class="tip-body">
+            <div class="tip-lbl" id="pre-tip-lbl">INTACT</div>
+            <div class="tip-row">
+              <span class="tip-key">STATUS</span>
+              <span class="tip-val" id="pre-tip-status">PRE-DISASTER</span>
+            </div>
+          </div>
+        </div>
       </div>""" if pre_b64 else """
       <div style="background:#060e18;border:0.5px solid #0a2a4a;min-height:110px;
            display:flex;align-items:center;justify-content:center;
@@ -421,6 +437,13 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
   .lockon.active {{display:block;animation:lockOnAnim .2s ease-out forwards}}
 
   /* === TOOLTIP === */
+  #pre-tip {{
+    position:absolute;display:none;pointer-events:none;z-index:20;
+    background:rgba(0,12,25,0.97);border:1px solid #0a4a7a;
+    clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);
+    box-shadow:0 0 14px #00aaff44;min-width:140px;
+  }}
+  #pre-lockon .lo-corner {{ border-color: #40c8ff }}
   #sdtip {{
     position:absolute;display:none;pointer-events:none;z-index:20;
     background:rgba(0,12,25,0.97);border:1px solid #0a4a7a;
@@ -514,6 +537,10 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     <div class="sdp">
       <div class="sdl">PRE-DISASTER</div>
       <div class="img-wrapper">{pre_html}</div>
+      <div class="img-footer">
+        <span id="pre-coord">X: — &nbsp; Y: —</span>
+        <span>PRE-DISASTER</span>
+      </div>
     </div>
 
     <!-- ANALYSIS TOOL -->
@@ -635,6 +662,10 @@ const preImg    = document.getElementById('pre-sdimg');
 const preCanvas = document.getElementById('pre-overlay');
 const preCtx    = preCanvas ? preCanvas.getContext('2d') : null;
 
+const PRE_TIP    = document.getElementById('pre-tip');
+const PRE_LOCKON = document.getElementById('pre-lockon');
+let preHovId = -1;
+
 let scanned = false;
 let hovId   = -1;
 
@@ -701,10 +732,11 @@ function drawPre() {{
   if (!preCtx) return;
   preCtx.clearRect(0, 0, preCanvas.width, preCanvas.height);
   const W = preCanvas.width, H = preCanvas.height;
-  PRE_BUILDINGS.forEach(b => {{
-    preCtx.fillStyle = '#40c8ff28';
-    preCtx.strokeStyle = '#40c8ff';
-    preCtx.lineWidth = 0.8;
+  PRE_BUILDINGS.forEach((b, i) => {{
+    const hov = i === preHovId;
+    preCtx.fillStyle   = hov ? '#40c8ff44' : '#40c8ff28';
+    preCtx.strokeStyle = hov ? '#80e0ff' : '#40c8ff';
+    preCtx.lineWidth   = hov ? 1.5 : 0.8;
     preCtx.fillRect(b.x*W, b.y*H, b.w*W, b.h*H);
     preCtx.strokeRect(b.x*W, b.y*H, b.w*W, b.h*H);
   }});
@@ -833,6 +865,14 @@ window.runScan = function() {{
   }})();
 }};
 
+// ── Pre-image lock-on
+function showPreLockOn(b) {{
+  PRE_LOCKON.style.left=(b.x*100)+'%'; PRE_LOCKON.style.top=(b.y*100)+'%';
+  PRE_LOCKON.style.width=(b.w*100)+'%'; PRE_LOCKON.style.height=(b.h*100)+'%';
+  PRE_LOCKON.className=''; void PRE_LOCKON.offsetWidth;
+  PRE_LOCKON.className='lockon active';
+}}
+
 // ── Lock-on
 function showLockOn(b) {{
   LOCKON.style.left=(b.x*100)+'%'; LOCKON.style.top=(b.y*100)+'%';
@@ -876,6 +916,39 @@ if (img.complete) sync();
 if (preImg) {{
   preImg.addEventListener('load', () => {{ syncPre(); drawPre(); }});
   if (preImg.complete) {{ syncPre(); drawPre(); }}
+}}
+
+// ── Pre-image mouse events
+if (preCanvas) {{
+  preCanvas.addEventListener('mousemove', e => {{
+    const r = preCanvas.getBoundingClientRect();
+    const mx = (e.clientX-r.left)*(preCanvas.width/r.width);
+    const my = (e.clientY-r.top)*(preCanvas.height/r.height);
+    document.getElementById('pre-coord').innerHTML='X:'+Math.round(mx)+'&nbsp;&nbsp;Y:'+Math.round(my);
+    let found = -1;
+    PRE_BUILDINGS.forEach((b, i) => {{
+      if (mx>=b.x*preCanvas.width && mx<=(b.x+b.w)*preCanvas.width &&
+          my>=b.y*preCanvas.height && my<=(b.y+b.h)*preCanvas.height) found=i;
+    }});
+    if (found !== preHovId) {{
+      preHovId = found; drawPre();
+      if (found >= 0) showPreLockOn(PRE_BUILDINGS[found]);
+      else PRE_LOCKON.className = 'lockon';
+    }}
+    if (found >= 0) {{
+      const b = PRE_BUILDINGS[found];
+      PRE_TIP.style.cssText = `position:absolute;display:block;
+        left:${{Math.min(e.clientX-r.left+14, r.width-150)}}px;
+        top:${{Math.max(e.clientY-r.top-60, 4)}}px;pointer-events:none;z-index:20`;
+      document.getElementById('pre-tip-id').textContent = '#'+String(found).padStart(4,'0');
+      document.getElementById('pre-tip-lbl').textContent = 'INTACT';
+      document.getElementById('pre-tip-lbl').style.color = '#40c8ff';
+      document.getElementById('pre-tip-status').textContent = 'PRE-DISASTER';
+    }} else {{ PRE_TIP.style.display = 'none'; }}
+  }});
+  preCanvas.addEventListener('mouseleave', () => {{
+    preHovId = -1; PRE_TIP.style.display = 'none'; PRE_LOCKON.className = 'lockon'; drawPre();
+  }});
 }}
 </script>
 """
