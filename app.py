@@ -441,23 +441,24 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     position:absolute;display:none;pointer-events:none;z-index:20;
     background:rgba(0,12,25,0.97);border:1px solid #0a4a7a;
     clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);
-    box-shadow:0 0 14px #00aaff44;min-width:140px;
+    box-shadow:0 0 14px #00aaff44;min-width:180px;
   }}
   #pre-lockon .lo-corner {{ border-color: #40c8ff }}
   #sdtip {{
     position:absolute;display:none;pointer-events:none;z-index:20;
     background:rgba(0,12,25,0.97);border:1px solid #0a4a7a;
     clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);
-    box-shadow:0 0 14px #00aaff44;min-width:140px;
+    box-shadow:0 0 14px #00aaff44;min-width:180px;
   }}
   .tip-hdr {{
     display:flex;justify-content:space-between;align-items:center;
     padding:4px 8px;border-bottom:1px solid #0a3050;
     font-size:10px;letter-spacing:1.5px;color:#1a5070;
+    white-space:nowrap;gap:10px;
   }}
   .tip-body {{padding:5px 8px}}
-  .tip-lbl {{font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}}
-  .tip-row {{display:flex;justify-content:space-between;align-items:center}}
+  .tip-lbl {{font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:6px}}
+  .tip-row {{display:flex;justify-content:space-between;align-items:center;gap:12px;white-space:nowrap}}
   .tip-key {{font-size:10px;color:#1a5070;letter-spacing:1px}}
   .tip-val {{font-size:12px;font-weight:600;color:#40c8ff}}
 
@@ -900,7 +901,7 @@ canvas.addEventListener('mousemove', e => {{
   if (found>=0) {{
     const b=BUILDINGS[found];
     TIP.style.cssText=`position:absolute;display:block;
-      left:${{Math.min(e.clientX-r.left+14,r.width-150)}}px;
+      left:${{Math.min(e.clientX-r.left+14,r.width-190)}}px;
       top:${{Math.max(e.clientY-r.top-60,4)}}px;pointer-events:none;z-index:20`;
     document.getElementById('tip-id').textContent='#'+String(found).padStart(4,'0');
     document.getElementById('tip-lbl').style.color=HFILLS[b.label];
@@ -938,7 +939,7 @@ if (preCanvas) {{
     if (found >= 0) {{
       const b = PRE_BUILDINGS[found];
       PRE_TIP.style.cssText = `position:absolute;display:block;
-        left:${{Math.min(e.clientX-r.left+14, r.width-150)}}px;
+        left:${{Math.min(e.clientX-r.left+14, r.width-190)}}px;
         top:${{Math.max(e.clientY-r.top-60, 4)}}px;pointer-events:none;z-index:20`;
       document.getElementById('pre-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('pre-tip-lbl').textContent = 'INTACT';
