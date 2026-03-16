@@ -95,7 +95,7 @@ st.markdown("""
     content: '[ DRAG FILES HERE ]';
     display: block;
     font-family: monospace !important;
-    font-size: 9px !important;
+    font-size: 10px !important;
     letter-spacing: 1.5px !important;
     color: #1a5070 !important;
     white-space: nowrap !important;
@@ -103,7 +103,7 @@ st.markdown("""
   /* keep the Browse button visible */
   [data-testid="stFileUploaderDropzone"] button {
     font-family: monospace !important;
-    font-size: 9px !important;
+    font-size: 10px !important;
     letter-spacing: 1.5px !important;
     color: #40c8ff !important;
     background: transparent !important;
@@ -117,7 +117,7 @@ st.markdown("""
     border: 0.5px solid #0a3050 !important;
     border-radius: 0 !important;
     font-family: monospace !important;
-    font-size: 9px !important;
+    font-size: 10px !important;
     color: #40c8ff !important;
   }
 
@@ -126,7 +126,7 @@ st.markdown("""
     color: #1a5070 !important;
     font-family: monospace !important;
     letter-spacing: 1.5px !important;
-    font-size: 9px !important;
+    font-size: 10px !important;
     margin-top: 2px !important;
   }
 
@@ -228,7 +228,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
       </div>""" if pre_b64 else """
       <div style="background:#060e18;border:0.5px solid #0a2a4a;min-height:110px;
            display:flex;align-items:center;justify-content:center;
-           color:#0a2a4a;font-size:9px;letter-spacing:2.5px">NO FEED</div>"""
+           color:#0a2a4a;font-size:10px;letter-spacing:2.5px">NO FEED</div>"""
 
     return f"""
 <style>
@@ -260,7 +260,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
 
   /* === SECTION LABELS === */
   .sdl {{
-    font-size:9px;color:#2a6080;letter-spacing:2.5px;text-transform:uppercase;
+    font-size:10px;color:#2a6080;letter-spacing:2.5px;text-transform:uppercase;
     margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #0a3050;
   }}
 
@@ -269,10 +269,10 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
   .sdcol  {{display:flex;flex-direction:column;gap:8px}}
   .sdrow  {{
     display:flex;justify-content:space-between;align-items:center;
-    padding:3px 0;font-size:11px;border-bottom:1px solid #060e18;
+    padding:3px 0;font-size:12px;border-bottom:1px solid #060e18;
   }}
-  .sdrow span:first-child {{color:#1a5070;font-size:10px;letter-spacing:1px}}
-  .sdrow span:last-child  {{color:#40c8ff;font-size:11px;font-weight:600}}
+  .sdrow span:first-child {{color:#1a5070;font-size:11px;letter-spacing:1px}}
+  .sdrow span:last-child  {{color:#40c8ff;font-size:12px;font-weight:600}}
 
   /* === HEADER === */
   .sdheader {{
@@ -280,15 +280,15 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     padding:8px 14px;margin-bottom:0;
   }}
   .sdheader .title {{
-    font-size:13px;font-weight:700;letter-spacing:3px;
+    font-size:15px;font-weight:700;letter-spacing:3px;
     color:#40c8ff;text-shadow:0 0 8px #00aaff88;
   }}
-  .sdheader .sub {{font-size:9px;color:#1a5070;letter-spacing:1px;margin-bottom:5px}}
+  .sdheader .sub {{font-size:10px;color:#1a5070;letter-spacing:1px;margin-bottom:5px}}
 
   /* === MODEL TABS === */
   .model-tabs {{display:flex;gap:4px}}
   .mtab {{
-    font-family:'Courier New',monospace;font-size:8px;letter-spacing:1.5px;
+    font-family:'Courier New',monospace;font-size:9px;letter-spacing:1.5px;
     text-transform:uppercase;padding:3px 9px;
     background:transparent;border:0.5px solid #0a2a4a;color:#1a5070;
     clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,0 100%);
@@ -370,22 +370,22 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
   .tip-hdr {{
     display:flex;justify-content:space-between;align-items:center;
     padding:4px 8px;border-bottom:1px solid #0a3050;
-    font-size:9px;letter-spacing:1.5px;color:#1a5070;
+    font-size:10px;letter-spacing:1.5px;color:#1a5070;
   }}
   .tip-body {{padding:5px 8px}}
-  .tip-lbl {{font-size:12px;font-weight:700;letter-spacing:1px;margin-bottom:4px}}
+  .tip-lbl {{font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:4px}}
   .tip-row {{display:flex;justify-content:space-between;align-items:center}}
-  .tip-key {{font-size:9px;color:#1a5070;letter-spacing:1px}}
-  .tip-val {{font-size:11px;font-weight:600;color:#40c8ff}}
+  .tip-key {{font-size:10px;color:#1a5070;letter-spacing:1px}}
+  .tip-val {{font-size:12px;font-weight:600;color:#40c8ff}}
 
   /* === IMG FOOTER === */
   .img-footer {{
     display:flex;justify-content:space-between;
-    margin-top:4px;font-size:9px;color:#1a5070;letter-spacing:1px;
+    margin-top:4px;font-size:10px;color:#1a5070;letter-spacing:1px;
   }}
 
   /* === DAMAGE LEVEL === */
-  #sdtlabel {{font-size:18px;font-weight:700;letter-spacing:3px;margin-bottom:8px;color:#1a5070}}
+  #sdtlabel {{font-size:20px;font-weight:700;letter-spacing:3px;margin-bottom:8px;color:#1a5070}}
   @keyframes critPulse {{
     0%,100%{{text-shadow:0 0 6px currentColor}}
     50%    {{text-shadow:0 0 20px currentColor,0 0 40px currentColor}}
@@ -397,11 +397,11 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     clip-path:polygon(2px 0%,100% 0%,calc(100% - 2px) 100%,0% 100%);
     transition:background .08s;
   }}
-  #sdtpct {{font-size:9px;color:#1a5070;letter-spacing:1.5px}}
+  #sdtpct {{font-size:10px;color:#1a5070;letter-spacing:1.5px}}
 
   /* === DAMAGE DISTRIBUTION === */
   .dist-row  {{margin-bottom:6px}}
-  .dist-hdr  {{display:flex;justify-content:space-between;font-size:10px;margin-bottom:3px;letter-spacing:1px}}
+  .dist-hdr  {{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;letter-spacing:1px}}
   .dist-segs {{display:flex;gap:2px;height:4px}}
   .dist-seg  {{
     flex:1;background:#060e18;
@@ -411,11 +411,11 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
 
   /* === LEGEND + BUTTON === */
   .legend   {{display:flex;gap:12px;flex-wrap:wrap;align-items:center}}
-  .leg-item {{font-size:10px;display:flex;align-items:center;gap:5px;letter-spacing:1px;color:#1a5070}}
+  .leg-item {{font-size:11px;display:flex;align-items:center;gap:5px;letter-spacing:1px;color:#1a5070}}
   .leg-sw   {{width:9px;height:9px;clip-path:polygon(0 0,calc(100% - 3px) 0,100% 3px,100% 100%,0 100%)}}
   .sdfooter {{display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px}}
   .sc2btn {{
-    font-family:'Courier New',monospace;font-size:11px;letter-spacing:2.5px;
+    font-family:'Courier New',monospace;font-size:12px;letter-spacing:2.5px;
     text-transform:uppercase;padding:7px 20px;
     background:rgba(0,25,45,0.9);border:1px solid #0a4a7a;color:#40c8ff;
     clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
@@ -525,7 +525,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
       <div class="sdp">
         <div class="sdl">DAMAGE DISTRIBUTION</div>
         <div id="sddist">
-          <div style="font-size:10px;color:#1a5070;letter-spacing:1.5px">AWAITING SCAN...</div>
+          <div style="font-size:11px;color:#1a5070;letter-spacing:1.5px">AWAITING SCAN...</div>
         </div>
       </div>
       <div class="sdp">
@@ -627,7 +627,7 @@ function draw() {{
     ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
     if (hov) {{
       ctx.fillStyle = HFILLS[b.label];
-      ctx.font = 'bold 9px monospace';
+      ctx.font = 'bold 10px monospace';
       ctx.fillText(Math.round(b.confidence*100)+'%', x+3, y+10);
     }}
   }});
@@ -838,11 +838,11 @@ else:
     if uploaded_post is None:
         st.markdown(
             "<div style='text-align:center;padding:4rem;color:#0a3050;"
-            "font-family:monospace;font-size:11px;letter-spacing:3px;"
+            "font-family:monospace;font-size:12px;letter-spacing:3px;"
             "background:rgba(5,12,20,0.88);border:0.5px solid #0a2a4a;"
             "clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,0 100%);'>"
             "[ AWAITING SATELLITE FEED ]<br><br>"
-            "<span style='font-size:9px;color:#061828;letter-spacing:2px'>"
+            "<span style='font-size:10px;color:#061828;letter-spacing:2px'>"
             "UPLOAD POST-DISASTER IMAGE TO BEGIN ASSESSMENT</span></div>",
             unsafe_allow_html=True,
         )
