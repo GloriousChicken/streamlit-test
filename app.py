@@ -266,6 +266,10 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
 
   /* === LAYOUT === */
   .sdgrid {{display:grid;grid-template-columns:1fr 1fr 1fr 210px;gap:8px}}
+  .sdgrid.no-analysis {{grid-template-columns:1fr 1fr 210px}}
+  .sdgrid.no-analysis .analysis-col {{display:none}}
+  .sdgrid.no-analysis .imgbox-static img,
+  .sdgrid.no-analysis #sdimg {{max-height:420px !important}}
   .sdcol  {{display:flex;flex-direction:column;gap:8px}}
   .sdrow  {{
     display:flex;justify-content:space-between;align-items:center;
@@ -304,6 +308,20 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
   }}
   .mtab.disabled:hover {{
     color:#0a1a2a;border-color:#0a1a2a;
+  }}
+
+  /* === ANALYSIS TOGGLE === */
+  .atoggle {{
+    font-family:'Courier New',monospace;font-size:9px;letter-spacing:1.5px;
+    text-transform:uppercase;padding:3px 9px;
+    background:transparent;border:0.5px solid #0a2a4a;color:#1a5070;
+    clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,0 100%);
+    cursor:pointer;transition:all .15s;
+  }}
+  .atoggle:hover {{border-color:#40c8ff88;color:#40c8ff88}}
+  .atoggle.active {{
+    background:rgba(0,60,100,0.5);border-color:#40c8ff;color:#40c8ff;
+    box-shadow:0 0 8px #00aaff44;
   }}
 
   /* === PROGRESS BAR === */
@@ -436,6 +454,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     <div style="text-align:right">
       <div class="sub">{event_name} &nbsp;·&nbsp; SELECT MODEL:</div>
       <div class="model-tabs" id="model-tabs">
+        <button class="atoggle active" onclick="toggleAnalysis()" id="analysis-toggle">ANALYSIS</button>
         <button class="mtab active" onclick="selectModel(0)">CNN-4BLOCK</button>
         <button class="mtab"        onclick="selectModel(1)">EFFICIENTNET-B0</button>
         <button class="mtab"        onclick="selectModel(2)">RESNET-50 [WIP]</button>
@@ -456,7 +475,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     </div>
 
     <!-- ANALYSIS TOOL -->
-    <div class="sdp">
+    <div class="sdp analysis-col">
       <div class="sdl">ANALYSIS // <span id="analysis-label">DAMAGE HEATMAP</span></div>
       <div class="model-tabs" id="analysis-tabs" style="margin-bottom:6px">
         <button class="mtab active" onclick="selectAnalysis(0)">HEATMAP</button>
@@ -607,6 +626,15 @@ function selectAnalysis(idx) {{
 }}
 
 // ── Canvas sync
+function toggleAnalysis() {{
+  const grid = document.querySelector('.sdgrid');
+  const btn  = document.getElementById('analysis-toggle');
+  grid.classList.toggle('no-analysis');
+  btn.classList.toggle('active');
+  sync();
+  draw();
+}}
+
 function sync() {{
   const r = img.getBoundingClientRect();
   canvas.width  = Math.round(r.width)  || img.naturalWidth;
