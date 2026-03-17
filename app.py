@@ -211,7 +211,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
     pre_html = f"""
       <div id="pre-imgbox">
         <img id="pre-sdimg" src="data:image/png;base64,{pre_b64}"
-             style="max-width:100%;max-height:280px;width:auto;height:auto;display:block;opacity:.85"/>
+             style="max-width:100%;max-height:420px;width:auto;height:auto;display:block;opacity:.85"/>
         <canvas id="pre-overlay" style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair"></canvas>
         <div class="corner tl"></div><div class="corner tr"></div>
         <div class="corner bl"></div><div class="corner br"></div>
@@ -484,7 +484,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
       <div class="img-wrapper">
         <div id="imgbox">
           <img id="sdimg" src="data:image/png;base64,{post_b64}"
-               style="max-width:100%;max-height:280px;width:auto;height:auto;display:block;opacity:.85"/>
+               style="max-width:100%;max-height:420px;width:auto;height:auto;display:block;opacity:.85"/>
           <canvas id="sdoverlay"
                   style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair"></canvas>
           <div class="corner tl" id="c-tl"></div>
@@ -1035,7 +1035,7 @@ else:
         buildings = predict(post_img, seed=seed)
 hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, MODELS, event_name)
 
-st.components.v1.html(hud_html, height=620, scrolling=False)
+st.components.v1.html(hud_html, height=760, scrolling=False)
 
 with st.expander("Raw predictions"):
     st.json({"post_buildings": buildings, "pre_buildings": pre_buildings})
