@@ -15,7 +15,7 @@ from typing import List, Dict
 
 from dummy_predictor import predict as dummy_predict, classify_outlines as dummy_classify
 
-DEFAULT_API_URL = "http://localhost:8000/predict"
+DEFAULT_API_URL = "REDACTED_API_URL"
 
 
 def predict_api(
