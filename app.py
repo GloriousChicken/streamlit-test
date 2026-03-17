@@ -1123,13 +1123,23 @@ elif parsed_outlines is not None:
         for e in parsed_outlines
     ]
     if pred_source == "API (DOCKER)":
-        buildings = predict_api(post_img, seed=seed, outlines=outlines_only)
+        buildings = predict_api(
+            post_img, pre_img=pre_img,
+            post_json_file=uploaded_post_json,
+            pre_json_file=uploaded_pre_json,
+            seed=seed, outlines=outlines_only,
+        )
     else:
         buildings = classify_outlines(outlines_only, seed=seed)
 else:
     # No JSON → full prediction (detect + classify)
     if pred_source == "API (DOCKER)":
-        buildings = predict_api(post_img, seed=seed)
+        buildings = predict_api(
+            post_img, pre_img=pre_img,
+            post_json_file=uploaded_post_json,
+            pre_json_file=uploaded_pre_json,
+            seed=seed,
+        )
     else:
         buildings = predict(post_img, seed=seed)
 heatmap_b64    = generate_damage_heatmap(post_img, buildings)
