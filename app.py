@@ -200,62 +200,7 @@ def pil_to_b64(img: Image.Image, max_w: int = 600) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def generate_damage_heatmap(post_img: Image.Image, buildings: list) -> str:
-    """Gaussian activation blobs colored by damage class."""
-    w, h = post_img.size
-    heat  = np.zeros((h, w, 3), dtype=np.float32)
-    COLORS = [(0.0,0.95,0.45),(0.95,0.85,0.0),(0.95,0.32,0.0),(0.95,0.05,0.05)]
-    yy, xx = np.mgrid[0:h, 0:w]
-    for b in buildings:
-        cx    = (b["x"] + b["w"] / 2) * w
-        cy    = (b["y"] + b["h"] / 2) * h
-        sigma = max(b["w"] * w, b["h"] * h) * 1.3 + 6
-        blob  = np.exp(-((xx-cx)**2+(yy-cy)**2) / (2*sigma**2)) * (0.45+b["confidence"]*0.55)
-        for c, cv in enumerate(COLORS[b["label"]]):
-            heat[:,:,c] = np.maximum(heat[:,:,c], blob * cv)
-    result = np.clip(np.array(post_img).astype(np.float32)/255.0 * 0.30 + heat * 0.90, 0, 1)
-    buf = io.BytesIO()
-    Image.fromarray((result * 255).astype(np.uint8)).save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode()
-
-
-def generate_confidence_map(post_img: Image.Image, buildings: list) -> str:
-    """Single-color gradient (cyan/white) where intensity = confidence only."""
-    w, h = post_img.size
-    heat = np.zeros((h, w), dtype=np.float32)
-    yy, xx = np.mgrid[0:h, 0:w]
-    for b in buildings:
-        cx    = (b["x"] + b["w"] / 2) * w
-        cy    = (b["y"] + b["h"] / 2) * h
-        sigma = max(b["w"] * w, b["h"] * h) * 1.3 + 6
-        blob  = np.exp(-((xx-cx)**2+(yy-cy)**2) / (2*sigma**2)) * b["confidence"]
-        heat  = np.maximum(heat, blob)
-    # Cyan (0.25,0.78,1.0) → white (1,1,1) as intensity increases
-    rgb = np.zeros((h, w, 3), dtype=np.float32)
-    rgb[:,:,0] = 0.25 + heat * 0.75
-    rgb[:,:,1] = 0.78 + heat * 0.22
-    rgb[:,:,2] = 1.0
-    result = np.clip(np.array(post_img).astype(np.float32)/255.0 * 0.25 + rgb * heat[..., None] * 0.85, 0, 1)
-    buf = io.BytesIO()
-    Image.fromarray((result * 255).astype(np.uint8)).save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode()
-
-
-def generate_diff_map(pre_img, post_img: Image.Image) -> str | None:
-    """Absolute pixel difference between pre and post. Returns None if no pre."""
-    if pre_img is None:
-        return None
-    pre_arr  = np.array(pre_img.resize(post_img.size, Image.LANCZOS)).astype(np.float32)
-    post_arr = np.array(post_img).astype(np.float32)
-    diff = np.abs(post_arr - pre_arr)
-    diff = (diff / diff.max() * 255).astype(np.uint8) if diff.max() > 0 else diff.astype(np.uint8)
-    buf = io.BytesIO()
-    Image.fromarray(diff).save(buf, format="PNG")
-    return base64.b64encode(buf.getvalue()).decode()
-
-
-def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
-              diff_b64: str | None, post_b64: str,
+def build_hud(pre_b64: str | None, post_b64: str,
               buildings: list, pre_buildings: list,
               models: list, event_name: str = "—") -> str:
 
@@ -326,12 +271,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
   }}
 
   /* === LAYOUT === */
-  .sdgrid {{display:grid;grid-template-columns:1fr 1fr 1fr 210px;gap:8px}}
-  .sdgrid.no-analysis {{grid-template-columns:1fr 1fr 210px}}
-  .sdgrid.no-analysis .analysis-col {{display:none}}
-  .sdgrid.no-analysis .imgbox-static img,
-  .sdgrid.no-analysis #pre-sdimg,
-  .sdgrid.no-analysis #sdimg {{max-height:420px !important}}
+  .sdgrid {{display:grid;grid-template-columns:1fr 1fr 210px;gap:8px}}
   .sdcol  {{display:flex;flex-direction:column;gap:8px}}
   .sdrow  {{
     display:flex;justify-content:space-between;align-items:center;
@@ -372,19 +312,6 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     color:#0a1a2a;border-color:#0a1a2a;
   }}
 
-  /* === ANALYSIS TOGGLE === */
-  .atoggle {{
-    font-family:'Courier New',monospace;font-size:9px;letter-spacing:1.5px;
-    text-transform:uppercase;padding:3px 9px;
-    background:transparent;border:0.5px solid #0a2a4a;color:#1a5070;
-    clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,0 100%);
-    cursor:pointer;transition:all .15s;
-  }}
-  .atoggle:hover {{border-color:#40c8ff88;color:#40c8ff88}}
-  .atoggle.active {{
-    background:rgba(0,60,100,0.5);border-color:#40c8ff;color:#40c8ff;
-    box-shadow:0 0 8px #00aaff44;
-  }}
 
   /* === PROGRESS BAR === */
   #pbar-track {{
@@ -528,7 +455,6 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
     <div style="text-align:right">
       <div class="sub">{event_name} &nbsp;·&nbsp; SELECT MODEL:</div>
       <div class="model-tabs" id="model-tabs">
-        <button class="atoggle active" onclick="toggleAnalysis()" id="analysis-toggle">ANALYSIS</button>
         <button class="mtab active" onclick="selectModel(0)">CNN-4BLOCK</button>
         <button class="mtab"        onclick="selectModel(1)">EFFICIENTNET-B0</button>
         <button class="mtab"        onclick="selectModel(2)">RESNET-50 [WIP]</button>
@@ -539,7 +465,7 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
   <!-- SCAN PROGRESS BAR -->
   <div id="pbar-track"><div id="pbar"></div></div>
 
-  <!-- MAIN GRID: PRE | ANALYSIS | POST+OVERLAY | STATS -->
+  <!-- MAIN GRID: PRE | POST+OVERLAY | STATS -->
   <div class="sdgrid">
 
     <!-- PRE-DISASTER -->
@@ -549,28 +475,6 @@ def build_hud(pre_b64: str | None, heatmap_b64: str, confidence_b64: str,
       <div class="img-footer">
         <span id="pre-coord">X: — &nbsp; Y: —</span>
         <span>PRE-DISASTER</span>
-      </div>
-    </div>
-
-    <!-- ANALYSIS TOOL -->
-    <div class="sdp analysis-col">
-      <div class="sdl">ANALYSIS // <span id="analysis-label">DAMAGE HEATMAP</span></div>
-      <div class="model-tabs" id="analysis-tabs" style="margin-bottom:6px">
-        <button class="mtab active" onclick="selectAnalysis(0)">HEATMAP</button>
-        <button class="mtab" onclick="selectAnalysis(1)">CONFIDENCE</button>
-        <button class="mtab{' disabled' if diff_b64 is None else ''}" onclick="selectAnalysis(2)" id="diff-tab">DIFF</button>
-      </div>
-      <div class="img-wrapper">
-        <div class="imgbox-static">
-          <img id="analysis-0" src="data:image/png;base64,{heatmap_b64}"
-               style="max-width:100%;max-height:280px;width:auto;height:auto;display:block"/>
-          <img id="analysis-1" src="data:image/png;base64,{confidence_b64}"
-               style="max-width:100%;max-height:280px;width:auto;height:auto;display:none"/>
-          <img id="analysis-2" src="{('data:image/png;base64,' + diff_b64) if diff_b64 else ''}"
-               style="max-width:100%;max-height:280px;width:auto;height:auto;display:none"/>
-          <div class="corner tl"></div><div class="corner tr"></div>
-          <div class="corner bl"></div><div class="corner br"></div>
-        </div>
       </div>
     </div>
 
@@ -701,28 +605,7 @@ function selectModel(idx) {{
   document.getElementById('m-epoch').textContent = m.epoch;
 }}
 
-// ── Analysis view selector
-const ANALYSIS_LABELS = ['DAMAGE HEATMAP','CONFIDENCE MAP','PRE / POST DIFF'];
-function selectAnalysis(idx) {{
-  if (idx === 2 && !document.getElementById('analysis-2').getAttribute('src')) return;
-  document.querySelectorAll('#analysis-tabs .mtab').forEach((b, i) =>
-    b.classList.toggle('active', i === idx));
-  [0,1,2].forEach(i =>
-    document.getElementById('analysis-'+i).style.display = i===idx ? 'block' : 'none');
-  document.getElementById('analysis-label').textContent = ANALYSIS_LABELS[idx];
-}}
-
 // ── Canvas sync
-function toggleAnalysis() {{
-  const grid = document.querySelector('.sdgrid');
-  const btn  = document.getElementById('analysis-toggle');
-  grid.classList.toggle('no-analysis');
-  btn.classList.toggle('active');
-  sync();
-  draw();
-  syncPre();
-  drawPre();
-}}
 
 function sync() {{
   const r = img.getBoundingClientRect();
@@ -1150,11 +1033,7 @@ else:
         )
     else:
         buildings = predict(post_img, seed=seed)
-heatmap_b64    = generate_damage_heatmap(post_img, buildings)
-confidence_b64 = generate_confidence_map(post_img, buildings)
-diff_b64       = generate_diff_map(pre_img, post_img)
-
-hud_html = build_hud(pre_b64, heatmap_b64, confidence_b64, diff_b64, post_b64, buildings, pre_buildings, MODELS, event_name)
+hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, MODELS, event_name)
 
 st.components.v1.html(hud_html, height=620, scrolling=False)
 
