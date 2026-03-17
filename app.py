@@ -63,6 +63,14 @@ SAMPLE_PAIRS = [
         "post_json": _SAMPLES_DIR / "challenge_train_labels_hurricane-michael_00000003_post_disaster.json",
         "seed": 3,
     },
+    {
+        "label": "MEXICO EARTHQUAKE // 00000052",
+        "pre":  _SAMPLES_DIR / "challenge_train_images_mexico-earthquake_00000052_pre_disaster.png",
+        "post": _SAMPLES_DIR / "challenge_train_images_mexico-earthquake_00000052_post_disaster.png",
+        "pre_json":  _SAMPLES_DIR / "challenge_train_labels_mexico-earthquake_00000052_pre_disaster.json",
+        "post_json": _SAMPLES_DIR / "challenge_train_labels_mexico-earthquake_00000052_post_disaster.json",
+        "seed": 52,
+    },
 ]
 
 # ── Model registry (metrics display only — swap for real values)
