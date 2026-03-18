@@ -142,15 +142,15 @@ st.markdown("""
     content: '[ DRAG FILES HERE ]';
     display: block;
     font-family: monospace !important;
-    font-size: 10px !important;
+    font-size: 12px !important;
     letter-spacing: 1.5px !important;
-    color: #1a5070 !important;
+    color: #40c8ff !important;
     white-space: nowrap !important;
   }
   /* keep the Browse button visible */
   [data-testid="stFileUploaderDropzone"] button {
     font-family: monospace !important;
-    font-size: 10px !important;
+    font-size: 12px !important;
     letter-spacing: 1.5px !important;
     color: #40c8ff !important;
     background: transparent !important;
@@ -164,16 +164,16 @@ st.markdown("""
     border: 0.5px solid #0a3050 !important;
     border-radius: 0 !important;
     font-family: monospace !important;
-    font-size: 10px !important;
+    font-size: 12px !important;
     color: #40c8ff !important;
   }
 
   /* caption text below uploaders */
   p[data-testid="stCaptionContainer"] {
-    color: #1a5070 !important;
+    color: #40c8ff !important;
     font-family: monospace !important;
     letter-spacing: 1.5px !important;
-    font-size: 10px !important;
+    font-size: 12px !important;
     margin-top: 2px !important;
   }
 
@@ -207,10 +207,12 @@ def pil_to_b64(img: Image.Image, max_w: int = 600) -> str:
 
 def build_hud(pre_b64: str | None, post_b64: str,
               buildings: list, pre_buildings: list,
-              event_name: str = "—", model: dict | None = None) -> str:
+              event_name: str = "—", model: dict | None = None,
+              gt_buildings: list | None = None) -> str:
 
     buildings_json = json.dumps(buildings)
     pre_buildings_json = json.dumps(pre_buildings)
+    gt_buildings_json = json.dumps(gt_buildings or [])
 
     pre_html = f"""
       <div id="pre-imgbox">
@@ -270,19 +272,19 @@ def build_hud(pre_b64: str | None, post_b64: str,
 
   /* === SECTION LABELS === */
   .sdl {{
-    font-size:10px;color:#2a6080;letter-spacing:2.5px;text-transform:uppercase;
+    font-size:13px;color:#40c8ff;letter-spacing:2.5px;text-transform:uppercase;
     margin-bottom:8px;padding-bottom:5px;border-bottom:1px solid #0a3050;
   }}
 
   /* === LAYOUT === */
-  .sdgrid {{display:grid;grid-template-columns:1fr 1fr 210px;gap:8px}}
+  .sdgrid {{display:grid;grid-template-columns:1fr 1fr 1fr 210px;gap:8px}}
   .sdcol  {{display:flex;flex-direction:column;gap:8px}}
   .sdrow  {{
     display:flex;justify-content:space-between;align-items:center;
-    padding:3px 0;font-size:12px;border-bottom:1px solid #060e18;
+    padding:3px 0;font-size:14px;border-bottom:1px solid #060e18;
   }}
-  .sdrow span:first-child {{color:#1a5070;font-size:11px;letter-spacing:1px}}
-  .sdrow span:last-child  {{color:#40c8ff;font-size:12px;font-weight:600}}
+  .sdrow span:first-child {{color:#40c8ff;font-size:13px;letter-spacing:1px}}
+  .sdrow span:last-child  {{color:#40c8ff;font-size:14px;font-weight:600}}
 
   /* === HEADER === */
   .sdheader {{
@@ -290,10 +292,10 @@ def build_hud(pre_b64: str | None, post_b64: str,
     padding:8px 14px;margin-bottom:0;
   }}
   .sdheader .title {{
-    font-size:15px;font-weight:700;letter-spacing:3px;
+    font-size:18px;font-weight:700;letter-spacing:3px;
     color:#40c8ff;text-shadow:0 0 8px #00aaff88;
   }}
-  .sdheader .sub {{font-size:10px;color:#1a5070;letter-spacing:1px;margin-bottom:5px}}
+  .sdheader .sub {{font-size:13px;color:#40c8ff;letter-spacing:1px;margin-bottom:5px}}
 
 
   /* === PROGRESS BAR === */
@@ -323,6 +325,10 @@ def build_hud(pre_b64: str | None, post_b64: str,
     border:0.5px solid #0a3050;overflow:hidden;
   }}
   #pre-imgbox {{
+    display:inline-block;position:relative;line-height:0;max-width:100%;
+    border:0.5px solid #0a3050;overflow:hidden;
+  }}
+  #gt-imgbox {{
     display:inline-block;position:relative;line-height:0;max-width:100%;
     border:0.5px solid #0a3050;overflow:hidden;
   }}
@@ -362,6 +368,12 @@ def build_hud(pre_b64: str | None, post_b64: str,
     box-shadow:0 0 14px #00aaff44;min-width:180px;
   }}
   #pre-lockon .lo-corner {{ border-color: #40c8ff }}
+  #gt-tip {{
+    position:absolute;display:none;pointer-events:none;z-index:20;
+    background:rgba(0,12,25,0.97);border:1px solid #0a4a7a;
+    clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);
+    box-shadow:0 0 14px #00aaff44;min-width:180px;
+  }}
   #sdtip {{
     position:absolute;display:none;pointer-events:none;z-index:20;
     background:rgba(0,12,25,0.97);border:1px solid #0a4a7a;
@@ -371,23 +383,23 @@ def build_hud(pre_b64: str | None, post_b64: str,
   .tip-hdr {{
     display:flex;justify-content:space-between;align-items:center;
     padding:4px 8px;border-bottom:1px solid #0a3050;
-    font-size:10px;letter-spacing:1.5px;color:#1a5070;
+    font-size:12px;letter-spacing:1.5px;color:#40c8ff;
     white-space:nowrap;gap:10px;
   }}
   .tip-body {{padding:5px 8px}}
-  .tip-lbl {{font-size:13px;font-weight:700;letter-spacing:1px;margin-bottom:6px}}
+  .tip-lbl {{font-size:15px;font-weight:700;letter-spacing:1px;margin-bottom:6px}}
   .tip-row {{display:flex;justify-content:space-between;align-items:center;gap:12px;white-space:nowrap}}
-  .tip-key {{font-size:10px;color:#1a5070;letter-spacing:1px}}
-  .tip-val {{font-size:12px;font-weight:600;color:#40c8ff}}
+  .tip-key {{font-size:12px;color:#40c8ff;letter-spacing:1px}}
+  .tip-val {{font-size:14px;font-weight:600;color:#40c8ff}}
 
   /* === IMG FOOTER === */
   .img-footer {{
     display:flex;justify-content:space-between;
-    margin-top:4px;font-size:10px;color:#1a5070;letter-spacing:1px;
+    margin-top:4px;font-size:12px;color:#40c8ff;letter-spacing:1px;
   }}
 
   /* === DAMAGE LEVEL === */
-  #sdtlabel {{font-size:20px;font-weight:700;letter-spacing:3px;margin-bottom:8px;color:#1a5070}}
+  #sdtlabel {{font-size:24px;font-weight:700;letter-spacing:3px;margin-bottom:8px;color:#40c8ff}}
   @keyframes critPulse {{
     0%,100%{{text-shadow:0 0 6px currentColor}}
     50%    {{text-shadow:0 0 20px currentColor,0 0 40px currentColor}}
@@ -399,11 +411,11 @@ def build_hud(pre_b64: str | None, post_b64: str,
     clip-path:polygon(2px 0%,100% 0%,calc(100% - 2px) 100%,0% 100%);
     transition:background .08s;
   }}
-  #sdtpct {{font-size:10px;color:#1a5070;letter-spacing:1.5px}}
+  #sdtpct {{font-size:12px;color:#40c8ff;letter-spacing:1.5px}}
 
   /* === DAMAGE DISTRIBUTION === */
   .dist-row  {{margin-bottom:6px}}
-  .dist-hdr  {{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;letter-spacing:1px}}
+  .dist-hdr  {{display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;letter-spacing:1px}}
   .dist-segs {{display:flex;gap:2px;height:4px}}
   .dist-seg  {{
     flex:1;background:#060e18;
@@ -413,11 +425,11 @@ def build_hud(pre_b64: str | None, post_b64: str,
 
   /* === LEGEND + BUTTON === */
   .legend   {{display:flex;gap:12px;flex-wrap:wrap;align-items:center}}
-  .leg-item {{font-size:11px;display:flex;align-items:center;gap:5px;letter-spacing:1px;color:#1a5070}}
+  .leg-item {{font-size:13px;display:flex;align-items:center;gap:5px;letter-spacing:1px;color:#40c8ff}}
   .leg-sw   {{width:9px;height:9px;clip-path:polygon(0 0,calc(100% - 3px) 0,100% 3px,100% 100%,0 100%)}}
   .sdfooter {{display:flex;justify-content:space-between;align-items:center;margin-top:8px;flex-wrap:wrap;gap:8px}}
   .sc2btn {{
-    font-family:'Courier New',monospace;font-size:12px;letter-spacing:2.5px;
+    font-family:'Courier New',monospace;font-size:14px;letter-spacing:2.5px;
     text-transform:uppercase;padding:7px 20px;
     background:rgba(0,25,45,0.9);border:1px solid #0a4a7a;color:#40c8ff;
     clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));
@@ -456,7 +468,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
 
     <!-- POST-DISASTER + OVERLAY -->
     <div class="sdp">
-      <div class="sdl">POST-DISASTER // OVERLAY</div>
+      <div class="sdl">MODEL PREDICTION</div>
       <div class="img-wrapper">
         <div id="imgbox">
           <img id="sdimg" src="data:image/png;base64,{post_b64}"
@@ -491,6 +503,41 @@ def build_hud(pre_b64: str | None, post_b64: str,
       </div>
     </div>
 
+    <!-- GROUND TRUTH -->
+    <div class="sdp">
+      <div class="sdl">GROUND TRUTH</div>
+      <div class="img-wrapper">
+        <div id="gt-imgbox">
+          <img id="gt-sdimg" src="data:image/png;base64,{post_b64}"
+               style="max-width:100%;max-height:420px;width:auto;height:auto;display:block;opacity:.85"/>
+          <canvas id="gt-overlay"
+                  style="position:absolute;top:0;left:0;width:100%;height:100%;cursor:crosshair"></canvas>
+          <div class="corner tl"></div><div class="corner tr"></div>
+          <div class="corner bl"></div><div class="corner br"></div>
+          <div id="gt-lockon" class="lockon">
+            <div class="lo-corner lo-tl"></div><div class="lo-corner lo-tr"></div>
+            <div class="lo-corner lo-bl"></div><div class="lo-corner lo-br"></div>
+          </div>
+          <div id="gt-tip">
+            <div class="tip-hdr">
+              <span>GROUND TRUTH</span><span id="gt-tip-id">#0000</span>
+            </div>
+            <div class="tip-body">
+              <div class="tip-lbl" id="gt-tip-lbl">—</div>
+              <div class="tip-row">
+                <span class="tip-key">SOURCE</span>
+                <span class="tip-val" id="gt-tip-src">GROUND TRUTH</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="img-footer">
+        <span id="gt-coord">X: — &nbsp; Y: —</span>
+        <span>GROUND TRUTH</span>
+      </div>
+    </div>
+
     <!-- STATS COLUMN -->
     <div class="sdcol">
       <div class="sdp">
@@ -502,7 +549,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
       <div class="sdp">
         <div class="sdl">DAMAGE DISTRIBUTION</div>
         <div id="sddist">
-          <div style="font-size:11px;color:#1a5070;letter-spacing:1.5px">AWAITING SCAN...</div>
+          <div style="font-size:13px;color:#40c8ff;letter-spacing:1.5px">AWAITING SCAN...</div>
         </div>
       </div>
       <div class="sdp">
@@ -534,6 +581,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
 <script>
 const BUILDINGS   = {buildings_json};
 const PRE_BUILDINGS = {pre_buildings_json};
+const GT_BUILDINGS  = {gt_buildings_json};
 const FILLS  = ['#00cc66','#ccaa00','#cc4400','#aa0000'];
 const HFILLS = ['#00ff88','#ffdd00','#ff6600','#ff2222'];
 const LABELS = ['No damage','Minor damage','Major damage','Destroyed'];
@@ -554,6 +602,13 @@ const preCtx    = preCanvas ? preCanvas.getContext('2d') : null;
 const PRE_TIP    = document.getElementById('pre-tip');
 const PRE_LOCKON = document.getElementById('pre-lockon');
 let preHovId = -1;
+
+const gtImg    = document.getElementById('gt-sdimg');
+const gtCanvas = document.getElementById('gt-overlay');
+const gtCtx    = gtCanvas ? gtCanvas.getContext('2d') : null;
+const GT_TIP    = document.getElementById('gt-tip');
+const GT_LOCKON = document.getElementById('gt-lockon');
+let gtHovId = -1;
 
 let scanned = false;
 let hovId   = -1;
@@ -595,6 +650,35 @@ function drawPre() {{
     preCtx.fillRect(b.x*W, b.y*H, b.w*W, b.h*H);
     preCtx.strokeRect(b.x*W, b.y*H, b.w*W, b.h*H);
   }});
+}}
+
+function syncGt() {{
+  if (!gtImg || !gtCanvas) return;
+  const r = gtImg.getBoundingClientRect();
+  gtCanvas.width  = Math.round(r.width)  || gtImg.naturalWidth;
+  gtCanvas.height = Math.round(r.height) || gtImg.naturalHeight;
+}}
+
+function drawGt() {{
+  if (!gtCtx) return;
+  gtCtx.clearRect(0, 0, gtCanvas.width, gtCanvas.height);
+  const W = gtCanvas.width, H = gtCanvas.height;
+  GT_BUILDINGS.forEach((b, i) => {{
+    const hov = i === gtHovId;
+    const lbl = b.label || 0;
+    gtCtx.fillStyle   = (hov ? HFILLS : FILLS)[lbl] + (hov ? '44' : '28');
+    gtCtx.strokeStyle = (hov ? HFILLS : FILLS)[lbl];
+    gtCtx.lineWidth   = hov ? 1.5 : 0.8;
+    gtCtx.fillRect(b.x*W, b.y*H, b.w*W, b.h*H);
+    gtCtx.strokeRect(b.x*W, b.y*H, b.w*W, b.h*H);
+  }});
+}}
+
+function showGtLockOn(b) {{
+  GT_LOCKON.style.left=(b.x*100)+'%'; GT_LOCKON.style.top=(b.y*100)+'%';
+  GT_LOCKON.style.width=(b.w*100)+'%'; GT_LOCKON.style.height=(b.h*100)+'%';
+  GT_LOCKON.className=''; void GT_LOCKON.offsetWidth;
+  GT_LOCKON.className='lockon active';
 }}
 
 // ── Draw overlays
@@ -805,6 +889,46 @@ if (preCanvas) {{
     preHovId = -1; PRE_TIP.style.display = 'none'; PRE_LOCKON.className = 'lockon'; drawPre();
   }});
 }}
+
+// ── GT image: draw immediately on load (no scan animation)
+if (gtImg) {{
+  gtImg.addEventListener('load', () => {{ syncGt(); drawGt(); }});
+  if (gtImg.complete) {{ syncGt(); drawGt(); }}
+}}
+
+// ── GT mouse events
+if (gtCanvas) {{
+  gtCanvas.addEventListener('mousemove', e => {{
+    const r = gtCanvas.getBoundingClientRect();
+    const mx = (e.clientX-r.left)*(gtCanvas.width/r.width);
+    const my = (e.clientY-r.top)*(gtCanvas.height/r.height);
+    document.getElementById('gt-coord').innerHTML='X:'+Math.round(mx)+'&nbsp;&nbsp;Y:'+Math.round(my);
+    let found = -1;
+    GT_BUILDINGS.forEach((b, i) => {{
+      if (mx>=b.x*gtCanvas.width && mx<=(b.x+b.w)*gtCanvas.width &&
+          my>=b.y*gtCanvas.height && my<=(b.y+b.h)*gtCanvas.height) found=i;
+    }});
+    if (found !== gtHovId) {{
+      gtHovId = found; drawGt();
+      if (found >= 0) showGtLockOn(GT_BUILDINGS[found]);
+      else GT_LOCKON.className = 'lockon';
+    }}
+    if (found >= 0) {{
+      const b = GT_BUILDINGS[found];
+      const lbl = b.label || 0;
+      GT_TIP.style.cssText = `position:absolute;display:block;
+        left:${{Math.min(e.clientX-r.left+14, r.width-190)}}px;
+        top:${{Math.max(e.clientY-r.top-60, 4)}}px;pointer-events:none;z-index:20`;
+      document.getElementById('gt-tip-id').textContent = '#'+String(found).padStart(4,'0');
+      document.getElementById('gt-tip-lbl').style.color = HFILLS[lbl];
+      document.getElementById('gt-tip-lbl').textContent = LABELS[lbl];
+      document.getElementById('gt-tip-src').textContent = 'GROUND TRUTH';
+    }} else {{ GT_TIP.style.display = 'none'; }}
+  }});
+  gtCanvas.addEventListener('mouseleave', () => {{
+    gtHovId = -1; GT_TIP.style.display = 'none'; GT_LOCKON.className = 'lockon'; drawGt();
+  }});
+}}
 </script>
 """
 
@@ -832,6 +956,7 @@ selected_label = st.selectbox(
 sample_idx = sample_labels.index(selected_label) - 1  # -1 → upload mode
 
 pre_buildings = []
+gt_buildings = []
 uploaded_post_json = None
 uploaded_pre_json = None
 
@@ -852,6 +977,9 @@ if sample_idx >= 0:
             pre_buildings = parse_xbd_json(raw_pre, is_pre=True)
         uploaded_pre_json = io.BytesIO(pair["pre_json"].read_bytes())
     if pair.get("post_json") and pair["post_json"].exists():
+        raw_post = json.loads(pair["post_json"].read_text())
+        if isinstance(raw_post, dict) and "features" in raw_post:
+            gt_buildings = parse_xbd_json(raw_post, is_pre=False)
         uploaded_post_json = io.BytesIO(pair["post_json"].read_bytes())
 else:
     # ── Upload mode
@@ -920,6 +1048,15 @@ else:
         except (json.JSONDecodeError, ValueError, TypeError) as exc:
             st.error(f"Invalid pre-disaster JSON: {exc}")
 
+    # ── Parse uploaded post JSON for ground truth overlay
+    if uploaded_post_json is not None:
+        try:
+            raw = json.loads(uploaded_post_json.getvalue())
+            if isinstance(raw, dict) and "features" in raw:
+                gt_buildings = parse_xbd_json(raw, is_pre=False)
+        except (json.JSONDecodeError, ValueError, TypeError) as exc:
+            st.error(f"Invalid post-disaster JSON: {exc}")
+
 # ── Prediction
 buildings = predict_api(
     post_img, pre_img=pre_img,
@@ -928,9 +1065,9 @@ buildings = predict_api(
     seed=seed,
     model_key=selected_model["api"],
 )
-hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model)
+hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model, gt_buildings=gt_buildings)
 
 st.components.v1.html(hud_html, height=760, scrolling=False)
 
 with st.expander("Raw predictions"):
-    st.json({"post_buildings": buildings, "pre_buildings": pre_buildings})
+    st.json({"post_buildings": buildings, "pre_buildings": pre_buildings, "gt_buildings": gt_buildings})
