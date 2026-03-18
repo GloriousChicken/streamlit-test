@@ -46,6 +46,11 @@ def parse_xbd_json(raw: dict, is_pre: bool = False) -> list:
 
 # ── Sample pairs bundled in samples/
 _SAMPLES_DIR = Path(__file__).parent / "samples"
+MODELS = [
+    {"key": "EFFICIENTNET-B0", "api": "efficientnet", "f1": "0.667", "prec": "0.691", "rec": "0.651", "auc": "—", "acc": "0.831", "epoch": "— / —"},
+    {"key": "CNN-BINARY",      "api": "cnn_concat",   "f1": "0.703", "prec": "0.630", "rec": "0.800", "auc": "0.938", "acc": "0.810", "epoch": "38 / 46"},
+]
+
 SAMPLE_PAIRS = [
     {
         "label": "HURRICANE HARVEY // 00000137",
@@ -71,12 +76,6 @@ SAMPLE_PAIRS = [
         "post_json": _SAMPLES_DIR / "challenge_train_labels_mexico-earthquake_00000052_post_disaster.json",
         "seed": 52,
     },
-]
-
-# ── Model registry (metrics display only — swap for real values)
-MODELS = [
-    {"key": "EFFICIENTNET-B0", "api": "efficientnet", "f1":"0.667","prec":"0.691","rec":"0.651","auc":"—","acc":"0.831","epoch":"— / —"},
-    {"key": "CNN-BINARY",      "api": "cnn_concat",   "f1":"0.703","prec":"0.630","rec":"0.800","auc":"0.938","acc":"0.810","epoch":"38 / 46"},
 ]
 
 # ── Page config
@@ -201,11 +200,10 @@ def pil_to_b64(img: Image.Image, max_w: int = 600) -> str:
 
 def build_hud(pre_b64: str | None, post_b64: str,
               buildings: list, pre_buildings: list,
-              models: list, event_name: str = "—") -> str:
+              event_name: str = "—", model: dict | None = None) -> str:
 
     buildings_json = json.dumps(buildings)
     pre_buildings_json = json.dumps(pre_buildings)
-    models_json    = json.dumps(models)
 
     pre_html = f"""
       <div id="pre-imgbox">
@@ -289,27 +287,6 @@ def build_hud(pre_b64: str | None, post_b64: str,
     color:#40c8ff;text-shadow:0 0 8px #00aaff88;
   }}
   .sdheader .sub {{font-size:10px;color:#1a5070;letter-spacing:1px;margin-bottom:5px}}
-
-  /* === MODEL TABS === */
-  .model-tabs {{display:flex;gap:4px}}
-  .mtab {{
-    font-family:'Courier New',monospace;font-size:9px;letter-spacing:1.5px;
-    text-transform:uppercase;padding:3px 9px;
-    background:transparent;border:0.5px solid #0a2a4a;color:#1a5070;
-    clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,0 100%);
-    cursor:pointer;transition:all .15s;
-  }}
-  .mtab:hover  {{border-color:#40c8ff88;color:#40c8ff88}}
-  .mtab.active {{
-    background:rgba(0,60,100,0.5);border-color:#40c8ff;color:#40c8ff;
-    box-shadow:0 0 8px #00aaff44;
-  }}
-  .mtab.disabled {{
-    color:#0a1a2a;border-color:#0a1a2a;cursor:not-allowed;
-  }}
-  .mtab.disabled:hover {{
-    color:#0a1a2a;border-color:#0a1a2a;
-  }}
 
 
   /* === PROGRESS BAR === */
@@ -451,13 +428,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
   <!-- HEADER -->
   <div class="sdp sdheader">
     <span class="title">SATDAMAGE // ASSESSMENT HUD</span>
-    <div style="text-align:right">
-      <div class="sub">{event_name} &nbsp;·&nbsp; SELECT MODEL:</div>
-      <div class="model-tabs" id="model-tabs">
-        <button class="mtab active" onclick="selectModel(0)">EFFICIENTNET-B0</button>
-        <button class="mtab"        onclick="selectModel(1)">CNN-BINARY</button>
-      </div>
-    </div>
+    <div class="sub">{event_name} · {model['key'] if model else '—'}</div>
   </div>
 
   <!-- SCAN PROGRESS BAR -->
@@ -529,12 +500,12 @@ def build_hud(pre_b64: str | None, post_b64: str,
       </div>
       <div class="sdp">
         <div class="sdl">MODEL METRICS</div>
-        <div class="sdrow"><span>F1 DAMAGED</span><span id="m-f1">0.703</span></div>
-        <div class="sdrow"><span>PRECISION</span><span id="m-prec">0.630</span></div>
-        <div class="sdrow"><span>RECALL</span><span id="m-rec">0.800</span></div>
-        <div class="sdrow"><span>AUC-ROC</span><span id="m-auc">0.938</span></div>
-        <div class="sdrow"><span>ACCURACY</span><span id="m-acc">0.810</span></div>
-        <div class="sdrow" style="border-bottom:none"><span>BEST EPOCH</span><span id="m-epoch">38 / 46</span></div>
+        <div class="sdrow"><span>F1 DAMAGED</span><span>{model['f1'] if model else '—'}</span></div>
+        <div class="sdrow"><span>PRECISION</span><span>{model['prec'] if model else '—'}</span></div>
+        <div class="sdrow"><span>RECALL</span><span>{model['rec'] if model else '—'}</span></div>
+        <div class="sdrow"><span>AUC-ROC</span><span>{model['auc'] if model else '—'}</span></div>
+        <div class="sdrow"><span>ACCURACY</span><span>{model['acc'] if model else '—'}</span></div>
+        <div class="sdrow" style="border-bottom:none"><span>BEST EPOCH</span><span>{model['epoch'] if model else '—'}</span></div>
       </div>
     </div>
   </div>
@@ -555,7 +526,6 @@ def build_hud(pre_b64: str | None, post_b64: str,
 <script>
 const BUILDINGS   = {buildings_json};
 const PRE_BUILDINGS = {pre_buildings_json};
-const MODELS_DATA = {models_json};
 const FILLS  = ['#00cc66','#ccaa00','#cc4400','#aa0000'];
 const HFILLS = ['#00ff88','#ffdd00','#ff6600','#ff2222'];
 const LABELS = ['No damage','Minor damage','Major damage','Destroyed'];
@@ -589,19 +559,6 @@ let hovId   = -1;
     bar.appendChild(s);
   }}
 }})();
-
-// ── Model selector
-function selectModel(idx) {{
-  document.querySelectorAll('#model-tabs .mtab').forEach((b, i) =>
-    b.classList.toggle('active', i === idx));
-  const m = MODELS_DATA[idx];
-  document.getElementById('m-f1').textContent    = m.f1;
-  document.getElementById('m-prec').textContent  = m.prec;
-  document.getElementById('m-rec').textContent   = m.rec;
-  document.getElementById('m-auc').textContent   = m.auc;
-  document.getElementById('m-acc').textContent   = m.acc;
-  document.getElementById('m-epoch').textContent = m.epoch;
-}}
 
 // ── Canvas sync
 
@@ -856,7 +813,13 @@ pred_source = st.radio(
     label_visibility="collapsed",
 )
 
-model_key = MODELS[0]["key"]
+model_choice = st.radio(
+    "model",
+    [m["key"] for m in MODELS],
+    horizontal=True,
+    label_visibility="collapsed",
+)
+selected_model = next(m for m in MODELS if m["key"] == model_choice)
 
 # ── Input source selector
 sample_labels = ["— UPLOAD YOUR OWN IMAGES OR SELECT SAMPLES —"] + [s["label"] for s in SAMPLE_PAIRS]
@@ -1019,7 +982,7 @@ elif parsed_outlines is not None:
             post_json_file=uploaded_post_json,
             pre_json_file=uploaded_pre_json,
             seed=seed, outlines=outlines_only,
-            model_key=next((m["api"] for m in MODELS if m["key"] == model_key), "efficientnet"),
+            model_key=selected_model["api"],
         )
     else:
         buildings = classify_outlines(outlines_only, seed=seed)
@@ -1031,11 +994,11 @@ else:
             post_json_file=uploaded_post_json,
             pre_json_file=uploaded_pre_json,
             seed=seed,
-            model_key=next((m["api"] for m in MODELS if m["key"] == model_key), "efficientnet"),
+            model_key=selected_model["api"],
         )
     else:
         buildings = predict(post_img, seed=seed)
-hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, MODELS, event_name)
+hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model)
 
 st.components.v1.html(hud_html, height=760, scrolling=False)
 
