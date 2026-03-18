@@ -57,7 +57,6 @@ def predict_api(
     pre_json_file: Optional[UploadedFile] = None,
     api_url: str = DEFAULT_API_URL,
     seed: int = None,
-    outlines: List[Dict] = None,
     model_key: str = "efficientnet",
 ) -> List[Dict]:
     """

@@ -823,10 +823,9 @@ selected_label = st.selectbox(
 
 sample_idx = sample_labels.index(selected_label) - 1  # -1 → upload mode
 
-parsed_outlines = None
-outlines_have_labels = False
-
 pre_buildings = []
+uploaded_post_json = None
+uploaded_pre_json = None
 
 if sample_idx >= 0:
     # ── Sample pair mode
@@ -838,16 +837,14 @@ if sample_idx >= 0:
     seed       = pair["seed"]
     event_name = pair["label"]
 
-    # ── Load bundled xBD JSONs if available
+    # ── Load bundled xBD JSONs as file-like objects for the API
     if pair.get("pre_json") and pair["pre_json"].exists():
         raw_pre = json.loads(pair["pre_json"].read_text())
         if isinstance(raw_pre, dict) and "features" in raw_pre:
             pre_buildings = parse_xbd_json(raw_pre, is_pre=True)
+        uploaded_pre_json = io.BytesIO(pair["pre_json"].read_bytes())
     if pair.get("post_json") and pair["post_json"].exists():
-        raw_post = json.loads(pair["post_json"].read_text())
-        if isinstance(raw_post, dict) and "features" in raw_post:
-            parsed_outlines = parse_xbd_json(raw_post, is_pre=False)
-            outlines_have_labels = True
+        uploaded_post_json = io.BytesIO(pair["post_json"].read_bytes())
 else:
     # ── Upload mode
     col_pre, col_post = st.columns(2)
@@ -900,39 +897,7 @@ else:
     seed       = hash(uploaded_post.name) % 9999
     event_name = uploaded_post.name.upper()
 
-    # ── Parse uploaded post JSON outlines (upload mode only)
-    parsed_outlines = None
-    outlines_have_labels = False
-    if uploaded_post_json is not None:
-        try:
-            raw = json.loads(uploaded_post_json.getvalue())
-            if isinstance(raw, dict) and "features" in raw:
-                # xBD format
-                parsed_outlines = parse_xbd_json(raw, is_pre=False)
-                outlines_have_labels = True
-            elif isinstance(raw, list):
-                # flat-list format (backward compatible)
-                required_keys = {"x", "y", "w", "h"}
-                for i, entry in enumerate(raw):
-                    if not isinstance(entry, dict):
-                        raise ValueError(f"Entry {i} is not an object")
-                    missing = required_keys - entry.keys()
-                    if missing:
-                        raise ValueError(f"Entry {i} missing keys: {missing}")
-                    for k in ("x", "y", "w", "h"):
-                        v = float(entry[k])
-                        if not (0.0 <= v <= 1.0):
-                            raise ValueError(f"Entry {i}: {k}={v} not in 0–1")
-                parsed_outlines = raw
-                outlines_have_labels = all(
-                    "label" in e and "confidence" in e for e in raw
-                )
-            else:
-                raise ValueError("JSON must be a list or xBD-format dict")
-        except (json.JSONDecodeError, ValueError, TypeError) as exc:
-            st.error(f"Invalid post-disaster JSON: {exc}")
-
-    # ── Parse uploaded pre JSON outlines
+    # ── Parse uploaded pre JSON for HUD overlay
     if uploaded_pre_json is not None:
         try:
             raw = json.loads(uploaded_pre_json.getvalue())
@@ -948,42 +913,13 @@ else:
             st.error(f"Invalid pre-disaster JSON: {exc}")
 
 # ── Prediction
-if parsed_outlines is not None and outlines_have_labels:
-    # JSON already has labels + confidence → use directly
-    buildings = [
-        {
-            "x": float(e["x"]),
-            "y": float(e["y"]),
-            "w": float(e["w"]),
-            "h": float(e["h"]),
-            "label": int(e["label"]),
-            "confidence": float(e["confidence"]),
-        }
-        for e in parsed_outlines
-    ]
-elif parsed_outlines is not None:
-    # JSON has outlines only → classify them
-    outlines_only = [
-        {"x": float(e["x"]), "y": float(e["y"]),
-         "w": float(e["w"]), "h": float(e["h"])}
-        for e in parsed_outlines
-    ]
-    buildings = predict_api(
-        post_img, pre_img=pre_img,
-        post_json_file=uploaded_post_json,
-        pre_json_file=uploaded_pre_json,
-        seed=seed, outlines=outlines_only,
-        model_key=selected_model["api"],
-    )
-else:
-    # No JSON → full prediction (detect + classify)
-    buildings = predict_api(
-        post_img, pre_img=pre_img,
-        post_json_file=uploaded_post_json,
-        pre_json_file=uploaded_pre_json,
-        seed=seed,
-        model_key=selected_model["api"],
-    )
+buildings = predict_api(
+    post_img, pre_img=pre_img,
+    post_json_file=uploaded_post_json,
+    pre_json_file=uploaded_pre_json,
+    seed=seed,
+    model_key=selected_model["api"],
+)
 hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model)
 
 st.components.v1.html(hud_html, height=760, scrolling=False)
