@@ -10,7 +10,6 @@ from PIL import Image
 import base64
 import io
 
-from dummy_predictor import predict, classify_outlines, DAMAGE_CLASSES
 from api_predictor import predict_api
 from pathlib import Path
 import re
@@ -47,8 +46,8 @@ def parse_xbd_json(raw: dict, is_pre: bool = False) -> list:
 # ── Sample pairs bundled in samples/
 _SAMPLES_DIR = Path(__file__).parent / "samples"
 MODELS = [
-    {"key": "EFFICIENTNET-B0", "api": "efficientnet", "f1": "0.667", "prec": "0.691", "rec": "0.651", "auc": "—", "acc": "0.831", "epoch": "— / —"},
-    {"key": "CNN-BINARY",      "api": "cnn_concat",   "f1": "0.703", "prec": "0.630", "rec": "0.800", "auc": "0.938", "acc": "0.810", "epoch": "38 / 46"},
+    {"key": "EFFICIENTNET-B0", "api": "efficientnet", "f1": "0.667", "f1w": "0.824", "prec": "—", "rec": "—", "auc": "—", "acc": "0.831", "epoch": "—"},
+    {"key": "CNN-BINARY",      "api": "cnn_concat",   "f1": "0.598", "f1w": "—",     "prec": "0.650", "rec": "0.644", "auc": "0.884", "acc": "0.849", "epoch": "38"},
 ]
 
 SAMPLE_PAIRS = [
@@ -500,7 +499,8 @@ def build_hud(pre_b64: str | None, post_b64: str,
       </div>
       <div class="sdp">
         <div class="sdl">MODEL METRICS</div>
-        <div class="sdrow"><span>F1 DAMAGED</span><span>{model['f1'] if model else '—'}</span></div>
+        <div class="sdrow"><span>F1 MACRO</span><span>{model['f1'] if model else '—'}</span></div>
+        <div class="sdrow"><span>F1 WEIGHTED</span><span>{model['f1w'] if model else '—'}</span></div>
         <div class="sdrow"><span>PRECISION</span><span>{model['prec'] if model else '—'}</span></div>
         <div class="sdrow"><span>RECALL</span><span>{model['rec'] if model else '—'}</span></div>
         <div class="sdrow"><span>AUC-ROC</span><span>{model['auc'] if model else '—'}</span></div>
@@ -805,14 +805,6 @@ if (preCanvas) {{
 # STREAMLIT UI
 # ─────────────────────────────────────────────
 
-# ── Prediction source selector
-pred_source = st.radio(
-    "prediction_source",
-    ["DUMMY PREDICTOR", "API (DOCKER)"],
-    horizontal=True,
-    label_visibility="collapsed",
-)
-
 model_choice = st.radio(
     "model",
     [m["key"] for m in MODELS],
@@ -976,28 +968,22 @@ elif parsed_outlines is not None:
          "w": float(e["w"]), "h": float(e["h"])}
         for e in parsed_outlines
     ]
-    if pred_source == "API (DOCKER)":
-        buildings = predict_api(
-            post_img, pre_img=pre_img,
-            post_json_file=uploaded_post_json,
-            pre_json_file=uploaded_pre_json,
-            seed=seed, outlines=outlines_only,
-            model_key=selected_model["api"],
-        )
-    else:
-        buildings = classify_outlines(outlines_only, seed=seed)
+    buildings = predict_api(
+        post_img, pre_img=pre_img,
+        post_json_file=uploaded_post_json,
+        pre_json_file=uploaded_pre_json,
+        seed=seed, outlines=outlines_only,
+        model_key=selected_model["api"],
+    )
 else:
     # No JSON → full prediction (detect + classify)
-    if pred_source == "API (DOCKER)":
-        buildings = predict_api(
-            post_img, pre_img=pre_img,
-            post_json_file=uploaded_post_json,
-            pre_json_file=uploaded_pre_json,
-            seed=seed,
-            model_key=selected_model["api"],
-        )
-    else:
-        buildings = predict(post_img, seed=seed)
+    buildings = predict_api(
+        post_img, pre_img=pre_img,
+        post_json_file=uploaded_post_json,
+        pre_json_file=uploaded_pre_json,
+        seed=seed,
+        model_key=selected_model["api"],
+    )
 hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model)
 
 st.components.v1.html(hud_html, height=760, scrolling=False)

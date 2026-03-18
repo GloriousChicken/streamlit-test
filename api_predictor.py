@@ -1,8 +1,7 @@
 """
 api_predictor.py
 Sends pre/post images + label JSONs to the Docker-based prediction API
-and returns results in the same format as dummy_predictor.predict().
-Falls back to the dummy predictor on connection errors.
+and returns a list of {x, y, w, h, label, confidence} dicts.
 """
 
 import io
@@ -14,8 +13,6 @@ import streamlit as st
 from PIL import Image
 from typing import List, Dict, Optional
 from streamlit.runtime.uploaded_file_manager import UploadedFile
-
-from dummy_predictor import predict as dummy_predict, classify_outlines as dummy_classify
 
 DEFAULT_API_URL = "REDACTED_API_URL"
 
@@ -73,16 +70,12 @@ def predict_api(
       - post-disaster label (JSON)
 
     Returns list of {x, y, w, h, label, confidence} dicts.
-
-    Falls back to dummy predictor if the API is unreachable or if
-    required files (pre image, JSONs) are missing.
+    Returns an empty list if required files are missing or the API errors.
     """
     # Need all 4 files for the API
     if pre_img is None or post_json_file is None or pre_json_file is None:
-        st.warning("API requires pre & post images + both JSON labels. Falling back to dummy predictor.")
-        if outlines is not None:
-            return dummy_classify(outlines, seed=seed)
-        return dummy_predict(post_img, seed=seed)
+        st.error("API requires pre & post images + both JSON labels.")
+        return []
 
     # Parse the post JSON to extract bboxes for the response
     post_json_file.seek(0)
@@ -128,7 +121,4 @@ def predict_api(
     except Exception as exc:
         st.error(f"Unexpected error calling prediction API: {exc}")
 
-    st.warning("Falling back to dummy predictor.")
-    if outlines is not None:
-        return dummy_classify(outlines, seed=seed)
-    return dummy_predict(post_img, seed=seed)
+    return []
