@@ -75,6 +75,14 @@ SAMPLE_PAIRS = [
         "post_json": _SAMPLES_DIR / "challenge_train_labels_mexico-earthquake_00000052_post_disaster.json",
         "seed": 52,
     },
+    {
+        "label": "MEXICO EARTHQUAKE // 00000139",
+        "pre":  _SAMPLES_DIR / "mexico-earthquake_00000139_pre_disaster.png",
+        "post": _SAMPLES_DIR / "mexico-earthquake_00000139_post_disaster.png",
+        "pre_json":  _SAMPLES_DIR / "mexico-earthquake_00000139_pre_disaster.json",
+        "post_json": _SAMPLES_DIR / "mexico-earthquake_00000139_post_disaster.json",
+        "seed": 139,
+    },
 ]
 
 # ── Page config
