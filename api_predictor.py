@@ -93,7 +93,7 @@ def predict_api(
     ]
 
     try:
-        resp = requests.post(api_url, files=files, params={"model": model_key}, timeout=60)
+        resp = requests.post(api_url, files=files, params={"model": model_key}, timeout=300)
         resp.raise_for_status()
         api_result = resp.json()
 
