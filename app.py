@@ -75,16 +75,9 @@ SAMPLE_PAIRS = [
 
 # ── Model registry (metrics display only — swap for real values)
 MODELS = [
-    {"key": "CNN-4BLOCK",      "f1":"0.703","prec":"0.630","rec":"0.800","auc":"0.938","acc":"0.810","epoch":"38 / 46"},
-    {"key": "EFFICIENTNET-B0", "f1":"0.741","prec":"0.698","rec":"0.791","auc":"0.952","acc":"0.836","epoch":"22 / 30"},
-    {"key": "RESNET-50 [WIP]", "f1":"—",    "prec":"—",    "rec":"—",    "auc":"—",    "acc":"—",    "epoch":"— / —"},
+    {"key": "EFFICIENTNET-B0", "api": "efficientnet", "f1":"0.667","prec":"0.691","rec":"0.651","auc":"—","acc":"0.831","epoch":"— / —"},
+    {"key": "CNN-BINARY",      "api": "cnn_concat",   "f1":"0.703","prec":"0.630","rec":"0.800","auc":"0.938","acc":"0.810","epoch":"38 / 46"},
 ]
-
-MODEL_KEY_TO_API = {
-    "CNN-4BLOCK":      "cnn_concat",
-    "EFFICIENTNET-B0": "efficientnet",
-    "RESNET-50 [WIP]": "cnn_concat",   # fallback until ResNet is ready
-}
 
 # ── Page config
 st.set_page_config(
@@ -461,9 +454,8 @@ def build_hud(pre_b64: str | None, post_b64: str,
     <div style="text-align:right">
       <div class="sub">{event_name} &nbsp;·&nbsp; SELECT MODEL:</div>
       <div class="model-tabs" id="model-tabs">
-        <button class="mtab active" onclick="selectModel(0)">CNN-4BLOCK</button>
-        <button class="mtab"        onclick="selectModel(1)">EFFICIENTNET-B0</button>
-        <button class="mtab"        onclick="selectModel(2)">RESNET-50 [WIP]</button>
+        <button class="mtab active" onclick="selectModel(0)">EFFICIENTNET-B0</button>
+        <button class="mtab"        onclick="selectModel(1)">CNN-BINARY</button>
       </div>
     </div>
   </div>
@@ -864,12 +856,7 @@ pred_source = st.radio(
     label_visibility="collapsed",
 )
 
-model_key = st.radio(
-    "model_selector",
-    [m["key"] for m in MODELS],
-    horizontal=True,
-    label_visibility="collapsed",
-)
+model_key = MODELS[0]["key"]
 
 # ── Input source selector
 sample_labels = ["— UPLOAD YOUR OWN IMAGES OR SELECT SAMPLES —"] + [s["label"] for s in SAMPLE_PAIRS]
@@ -1032,7 +1019,7 @@ elif parsed_outlines is not None:
             post_json_file=uploaded_post_json,
             pre_json_file=uploaded_pre_json,
             seed=seed, outlines=outlines_only,
-            model_key=MODEL_KEY_TO_API.get(model_key, "cnn_concat"),
+            model_key=next((m["api"] for m in MODELS if m["key"] == model_key), "efficientnet"),
         )
     else:
         buildings = classify_outlines(outlines_only, seed=seed)
@@ -1044,7 +1031,7 @@ else:
             post_json_file=uploaded_post_json,
             pre_json_file=uploaded_pre_json,
             seed=seed,
-            model_key=MODEL_KEY_TO_API.get(model_key, "cnn_concat"),
+            model_key=next((m["api"] for m in MODELS if m["key"] == model_key), "efficientnet"),
         )
     else:
         buildings = predict(post_img, seed=seed)

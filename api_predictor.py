@@ -61,7 +61,7 @@ def predict_api(
     api_url: str = DEFAULT_API_URL,
     seed: int = None,
     outlines: List[Dict] = None,
-    model_key: str = "cnn_concat",
+    model_key: str = "efficientnet",
 ) -> List[Dict]:
     """
     Send pre/post images and label JSONs to the prediction API.
