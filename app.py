@@ -80,6 +80,12 @@ MODELS = [
     {"key": "RESNET-50 [WIP]", "f1":"—",    "prec":"—",    "rec":"—",    "auc":"—",    "acc":"—",    "epoch":"— / —"},
 ]
 
+MODEL_KEY_TO_API = {
+    "CNN-4BLOCK":      "cnn_concat",
+    "EFFICIENTNET-B0": "efficientnet",
+    "RESNET-50 [WIP]": "cnn_concat",   # fallback until ResNet is ready
+}
+
 # ── Page config
 st.set_page_config(
     page_title="SatDamage // Assessment HUD",
@@ -858,6 +864,13 @@ pred_source = st.radio(
     label_visibility="collapsed",
 )
 
+model_key = st.radio(
+    "model_selector",
+    [m["key"] for m in MODELS],
+    horizontal=True,
+    label_visibility="collapsed",
+)
+
 # ── Input source selector
 sample_labels = ["— UPLOAD YOUR OWN IMAGES OR SELECT SAMPLES —"] + [s["label"] for s in SAMPLE_PAIRS]
 selected_label = st.selectbox(
@@ -1019,6 +1032,7 @@ elif parsed_outlines is not None:
             post_json_file=uploaded_post_json,
             pre_json_file=uploaded_pre_json,
             seed=seed, outlines=outlines_only,
+            model_key=MODEL_KEY_TO_API.get(model_key, "cnn_concat"),
         )
     else:
         buildings = classify_outlines(outlines_only, seed=seed)
@@ -1030,6 +1044,7 @@ else:
             post_json_file=uploaded_post_json,
             pre_json_file=uploaded_pre_json,
             seed=seed,
+            model_key=MODEL_KEY_TO_API.get(model_key, "cnn_concat"),
         )
     else:
         buildings = predict(post_img, seed=seed)

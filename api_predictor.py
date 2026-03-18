@@ -61,6 +61,7 @@ def predict_api(
     api_url: str = DEFAULT_API_URL,
     seed: int = None,
     outlines: List[Dict] = None,
+    model_key: str = "cnn_concat",
 ) -> List[Dict]:
     """
     Send pre/post images and label JSONs to the prediction API.
@@ -100,28 +101,21 @@ def predict_api(
     ]
 
     try:
-        resp = requests.post(api_url, files=files, timeout=60)
+        resp = requests.post(api_url, files=files, params={"model": model_key}, timeout=60)
         resp.raise_for_status()
         api_result = resp.json()
 
-        # API returns {index: [ground_truth, prediction], ...}
-        # Transform to [{x, y, w, h, label, confidence}, ...]
+        buildings_by_index = {b["index"]: b for b in api_result["buildings"]}
         buildings = []
         for i, bbox in enumerate(bboxes):
-            str_key = str(i)
-            if str_key in api_result:
-                pred_label = api_result[str_key][1]
-            elif i in api_result:
-                pred_label = api_result[i][1]
-            else:
-                pred_label = 0
+            b = buildings_by_index.get(i, {})
             buildings.append({
                 "x": bbox["x"],
                 "y": bbox["y"],
                 "w": bbox["w"],
                 "h": bbox["h"],
-                "label": int(pred_label),
-                "confidence": 0.95,
+                "label":      int(b.get("prediction", 0)),
+                "confidence": float(b.get("confidence", 0.0)),
             })
         return buildings
 
