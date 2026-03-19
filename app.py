@@ -862,15 +862,15 @@ canvas.addEventListener('mousemove', e => {{
     display:block;
     left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
     top:${{Math.max(e.clientY-r.top-80,4)}}px;
-    min-width:260px;
-    min-height:100px;
+    min-width:220px;
+    min-height:80px;
     padding:10px 14px;
     font-size:13px;
     pointer-events:none;z-index:20`;
     document.getElementById('tip-id').textContent='#'+String(found).padStart(4,'0');
     document.getElementById('tip-lbl').style.color=HFILLS[b.label];
     document.getElementById('tip-lbl').textContent=LABELS[b.label];
-    document.getElementById('tip-lbl').style.cssText = `margin-top:40px;font-size:16px;`;
+    document.getElementById('tip-lbl').style.cssText = `margin-top:25px;font-size:16px;`;
     document.getElementById('tip-conf').textContent=Math.round(b.confidence*100)+'%';
   }} else {{ TIP.style.display='none'; }}
 }});
@@ -907,15 +907,15 @@ if (preCanvas) {{
       display:block;
       left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
       top:${{Math.max(e.clientY-r.top-80,4)}}px;
-      min-width:260px;
-      min-height:100px;
+      min-width:220px;
+      min-height:80px;
       padding:10px 14px;
       font-size:13px;
       pointer-events:none;z-index:20`;
       document.getElementById('pre-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('pre-tip-lbl').textContent = 'INTACT';
       document.getElementById('pre-tip-lbl').style.color = '#40c8ff';
-      document.getElementById('pre-tip-lbl').style.cssText = `margin-top:40px;font-size:16px;`;
+      document.getElementById('pre-tip-lbl').style.cssText = `margin-top:25px;font-size:16px;`;
       document.getElementById('pre-tip-status').textContent = 'PRE-DISASTER';
     }} else {{ PRE_TIP.style.display = 'none'; }}
   }});
@@ -954,15 +954,15 @@ if (gtCanvas) {{
       display:block;
       left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
       top:${{Math.max(e.clientY-r.top-80,4)}}px;
-      min-width:260px;
-      min-height:100px;
+      min-width:220px;
+      min-height:80px;
       padding:10px 14px;
       font-size:13px;
       pointer-events:none;z-index:20`;
       document.getElementById('gt-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('gt-tip-lbl').style.color = HFILLS[lbl];
       document.getElementById('gt-tip-lbl').textContent = LABELS[lbl];
-      document.getElementById('gt-tip-lbl').style.cssText = `margin-top:40px;font-size:16px;`;
+      document.getElementById('gt-tip-lbl').style.cssText = `margin-top:25px;font-size:16px;`;
       document.getElementById('gt-tip-src').textContent = 'GROUND TRUTH';
     }} else {{ GT_TIP.style.display = 'none'; }}
   }});
