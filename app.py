@@ -225,13 +225,14 @@ def build_hud(pre_b64: str | None, post_b64: str,
 
     report_html = ""
     if report:
+        cls_colors = {"no-damage":"#00cc66","minor-damage":"#ccaa00","major-damage":"#cc4400","destroyed":"#aa0000"}
         rows = ""
         for cls in ["no-damage", "minor-damage", "major-damage", "destroyed"]:
             if cls in report:
                 r = report[cls]
                 rows += f"""
             <div class="sdrow" style="flex-direction:column;align-items:flex-start;gap:0">
-                <span style="font-size:13px;white-space:nowrap">{cls.upper().replace("DAMAGE","DMG")}</span>
+                <span style="font-size:13px;white-space:nowrap;color:{cls_colors[cls]}">{cls.upper().replace("DAMAGE","DMG")}</span>
                 <span style="font-size:12px;white-space:nowrap">
                     P:{r['precision']:.2f} &nbsp; R:{r['recall']:.2f} &nbsp; F1:{r['f1-score']:.2f}
                 </span>
