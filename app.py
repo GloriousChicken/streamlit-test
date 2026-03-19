@@ -46,8 +46,8 @@ def parse_xbd_json(raw: dict, is_pre: bool = False) -> list:
 # ── Sample pairs bundled in samples/
 _SAMPLES_DIR = Path(__file__).parent / "samples"
 MODELS = [
-    {"key": "EFFICIENTNET-B0", "api": "efficientnet", "f1": "0.667", "f1w": "0.824", "prec": "—", "rec": "—", "auc": "—", "acc": "0.831", "epoch": "—"},
-    {"key": "CNN-BINARY",      "api": "cnn_concat",   "f1": "0.598", "f1w": "—",     "prec": "0.650", "rec": "0.644", "auc": "0.884", "acc": "0.849", "epoch": "38"},
+    {"key": "EFFICIENTNET-B0", "api": "efficientnet", "f1": "0.667", "f1w": "0.824", "prec": "—",     "rec": "—",     "auc": "—",     "acc": "0.831", "epoch": "—"},
+    {"key": "CNN-4CLASS",      "api": "cnn_concat",   "f1": "0.689", "f1w": "—",     "prec": "—",     "rec": "—",     "auc": "—",     "acc": "—",     "epoch": "—"},
 ]
 
 SAMPLE_PAIRS = [
