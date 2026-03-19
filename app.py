@@ -477,7 +477,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
   <!-- HEADER -->
   <div class="sdp sdheader">
     <span class="title">SATDAMAGE // ASSESSMENT HUD</span>
-    <div class="sub">{event_name} · {model['key'] if model else '—'}</div>
+    <div class="sub">{event_name}</div>
   </div>
 
   <!-- SCAN PROGRESS BAR -->
