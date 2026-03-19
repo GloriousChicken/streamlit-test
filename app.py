@@ -231,7 +231,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
                 r = report[cls]
                 rows += f"""
             <div class="sdrow">
-                <span style="font-size:13px;white-space:nowrap">{cls.upper()}</span>
+                <span style="font-size:13px;white-space:nowrap">{cls.upper().replace("DAMAGE","DMG")}</span>
                 <span style="font-size:13px;white-space:nowrap;text-align:right">
                     P:{r['precision']:.2f} R:{r['recall']:.2f} F1:{r['f1-score']:.2f}
                 </span>
