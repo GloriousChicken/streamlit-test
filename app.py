@@ -215,7 +215,7 @@ def pil_to_b64(img: Image.Image, max_w: int = 600) -> str:
 
 def build_hud(pre_b64: str | None, post_b64: str,
               buildings: list, pre_buildings: list,
-              event_name: str = "—", model: dict | None = None,
+              event_name: str = "—",
               gt_buildings: list | None = None,
               report: dict | None = None) -> str:
 
@@ -231,8 +231,8 @@ def build_hud(pre_b64: str | None, post_b64: str,
                 r = report[cls]
                 rows += f"""
             <div class="sdrow">
-                <span style="font-size:11px">{cls.upper()}</span>
-                <span style="font-size:11px">
+                <span style="font-size:13px">{cls.upper()}</span>
+                <span style="font-size:13px">
                     P:{r['precision']:.2f}
                     R:{r['recall']:.2f}
                     F1:{r['f1-score']:.2f}
@@ -581,16 +581,6 @@ def build_hud(pre_b64: str | None, post_b64: str,
         <div id="sddist">
           <div style="font-size:13px;color:#40c8ff;letter-spacing:1.5px">AWAITING SCAN...</div>
         </div>
-      </div>
-      <div class="sdp">
-        <div class="sdl">MODEL METRICS</div>
-        <div class="sdrow"><span>F1 MACRO</span><span>{model['f1'] if model else '—'}</span></div>
-        <div class="sdrow"><span>F1 WEIGHTED</span><span>{model['f1w'] if model else '—'}</span></div>
-        <div class="sdrow"><span>PRECISION</span><span>{model['prec'] if model else '—'}</span></div>
-        <div class="sdrow"><span>RECALL</span><span>{model['rec'] if model else '—'}</span></div>
-        <div class="sdrow"><span>AUC-ROC</span><span>{model['auc'] if model else '—'}</span></div>
-        <div class="sdrow"><span>ACCURACY</span><span>{model['acc'] if model else '—'}</span></div>
-        <div class="sdrow" style="border-bottom:none"><span>BEST EPOCH</span><span>{model['epoch'] if model else '—'}</span></div>
       </div>
       {report_html}
     </div>
@@ -1096,7 +1086,7 @@ buildings, report = predict_api(
     seed=seed,
     model_key=selected_model["api"],
 )
-hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model, gt_buildings=gt_buildings, report=report)
+hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, gt_buildings=gt_buildings, report=report)
 
 st.components.v1.html(hud_html, height=760, scrolling=False)
 
