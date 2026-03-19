@@ -29,6 +29,17 @@ def get_metadata(label_path: Path) -> dict:
     }
 
 
+def get_class_distribution(label_path: Path) -> dict:
+    """Return {subtype: count} for all buildings in a post-disaster label."""
+    with open(label_path) as f:
+        data = json.load(f)
+    dist = defaultdict(int)
+    for feat in data.get("features", {}).get("xy", []):
+        sub = feat.get("properties", {}).get("subtype", "no-damage")
+        dist[sub] += 1
+    return dict(dist)
+
+
 def parse_sample_name(filename: str) -> str:
     """Extract sample base name: everything before _pre_disaster or _post_disaster."""
     for suffix in ("_post_disaster.json", "_pre_disaster.json"):
@@ -37,7 +48,7 @@ def parse_sample_name(filename: str) -> str:
     return filename
 
 
-def select_samples(labels_dir: Path, min_b: int, max_b: int, num_samples: int):
+def select_samples(labels_dir: Path, min_b: int, max_b: int, num_samples: int, min_classes: int = 3):
     post_files = sorted(labels_dir.glob("*_post_disaster.json"))
     if not post_files:
         print(f"No *_post_disaster.json files found in {labels_dir}")
@@ -51,6 +62,7 @@ def select_samples(labels_dir: Path, min_b: int, max_b: int, num_samples: int):
         n = count_buildings(p)
         if min_b <= n <= max_b:
             meta = get_metadata(p)
+            class_dist = get_class_distribution(p)
             candidates.append(
                 {
                     "path": p,
@@ -58,10 +70,16 @@ def select_samples(labels_dir: Path, min_b: int, max_b: int, num_samples: int):
                     "buildings": n,
                     "disaster": meta["disaster"],
                     "disaster_type": meta["disaster_type"],
+                    "class_dist": class_dist,
+                    "num_classes": len(class_dist),
                 }
             )
 
     print(f"  {len(candidates)} candidates with {min_b}–{max_b} buildings")
+
+    # Filter by class diversity
+    candidates = [c for c in candidates if c["num_classes"] >= min_classes]
+    print(f"  {len(candidates)} candidates with >= {min_classes} damage classes")
 
     # Group by event, pick closest to 50 buildings from each
     by_event = defaultdict(list)
@@ -70,7 +88,7 @@ def select_samples(labels_dir: Path, min_b: int, max_b: int, num_samples: int):
 
     best_per_event = {}
     for event, samples in by_event.items():
-        best = min(samples, key=lambda s: abs(s["buildings"] - 50))
+        best = min(samples, key=lambda s: (-s["num_classes"], abs(s["buildings"] - 50)))
         best_per_event[event] = best
 
     print(f"  {len(best_per_event)} distinct events with candidates")
@@ -99,13 +117,21 @@ def select_samples(labels_dir: Path, min_b: int, max_b: int, num_samples: int):
     return selected
 
 
+def format_class_dist(dist: dict) -> str:
+    """Format class distribution as e.g. '4cls: ND=15 Mi=3 Ma=5 De=2'."""
+    abbrev = {"no-damage": "ND", "minor-damage": "Mi", "major-damage": "Ma", "destroyed": "De"}
+    parts = [f"{abbrev.get(k, k)}={v}" for k, v in sorted(dist.items())]
+    return f"{len(dist)}cls: {' '.join(parts)}"
+
+
 def print_results(selected):
     print(f"\nSelected {len(selected)} samples:\n")
-    print(f"  {'Name':<45} {'Buildings':>9}  {'Event':<30} {'Type'}")
-    print(f"  {'─'*45} {'─'*9}  {'─'*30} {'─'*20}")
+    print(f"  {'Name':<45} {'Buildings':>9}  {'Event':<30} {'Type':<20} {'Classes'}")
+    print(f"  {'─'*45} {'─'*9}  {'─'*30} {'─'*20} {'─'*30}")
     for s in selected:
+        cls = format_class_dist(s["class_dist"])
         print(
-            f"  {s['name']:<45} {s['buildings']:>9}  {s['disaster']:<30} {s['disaster_type']}"
+            f"  {s['name']:<45} {s['buildings']:>9}  {s['disaster']:<30} {s['disaster_type']:<20} {cls}"
         )
 
     # Print SAMPLE_PAIRS snippet
@@ -148,12 +174,17 @@ def main():
     parser.add_argument("--max-buildings", type=int, default=100)
     parser.add_argument("--num-samples", type=int, default=5)
     parser.add_argument(
+        "--min-classes", type=int, default=3,
+        help="Minimum distinct damage classes per sample (1–4, default: 3)",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Print selections without copying"
     )
     args = parser.parse_args()
 
     selected = select_samples(
-        args.labels_dir, args.min_buildings, args.max_buildings, args.num_samples
+        args.labels_dir, args.min_buildings, args.max_buildings, args.num_samples,
+        min_classes=args.min_classes,
     )
     if not selected:
         return
