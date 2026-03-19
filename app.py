@@ -1107,6 +1107,3 @@ buildings, report = predict_api(
 hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, gt_buildings=gt_buildings, report=report)
 
 st.components.v1.html(hud_html, height=760, scrolling=False)
-
-with st.expander("Raw predictions"):
-    st.json({"post_buildings": buildings, "pre_buildings": pre_buildings, "gt_buildings": gt_buildings, "report": report})
