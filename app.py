@@ -684,7 +684,7 @@ function drawGt() {{
   GT_BUILDINGS.forEach((b, i) => {{
     const hov = i === gtHovId;
     const lbl = b.label || 0;
-    gtCtx.fillStyle   = (hov ? HFILLS : FILLS)[lbl] + (hov ? '44' : '28');
+    gtCtx.fillStyle   = (hov ? HFILLS : FILLS)[lbl] + (hov ? '88' : '55');
     gtCtx.strokeStyle = (hov ? HFILLS : FILLS)[lbl];
     gtCtx.lineWidth   = hov ? 1.5 : 0.8;
     gtCtx.fillRect(b.x*W, b.y*H, b.w*W, b.h*H);
@@ -707,7 +707,7 @@ function draw() {{
   BUILDINGS.forEach((b, i) => {{
     const x = b.x*W, y = b.y*H, w = b.w*W, h = b.h*H;
     const hov = i === hovId;
-    ctx.fillStyle   = (hov ? HFILLS : FILLS)[b.label] + (hov ? '44' : '28');
+    ctx.fillStyle   = (hov ? HFILLS : FILLS)[b.label] + (hov ? '88' : '55');
     ctx.strokeStyle = (hov ? HFILLS : FILLS)[b.label];
     ctx.lineWidth   = hov ? 1.5 : 0.8;
     ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
@@ -784,7 +784,7 @@ window.runScan = function() {{
         ctx.fillStyle=HFILLS[b.label]+'cc';
         ctx.fillRect(bx,by,bw,bh); ctx.restore();
       }}
-      ctx.fillStyle=FILLS[b.label]+'28';
+      ctx.fillStyle=FILLS[b.label]+'55';
       ctx.strokeStyle=FILLS[b.label]; ctx.lineWidth=0.8;
       ctx.fillRect(bx,by,bw,bh); ctx.strokeRect(bx,by,bw,bh);
     }});
