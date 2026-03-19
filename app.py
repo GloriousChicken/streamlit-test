@@ -232,7 +232,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
                 r = report[cls]
                 rows += f"""
             <div class="sdrow" style="align-items:flex-start;gap:0">
-                <span style="font-size:13px;white-space:nowrap;color:{cls_colors[cls]};text-shadow:0 0 8px currentColor">F1:{r['f1-score']:.2f}</span>
+                <span style="font-size:15px;white-space:nowrap;color:{cls_colors[cls]};text-shadow:0 0 8px currentColor">F1 SCORE:{r['f1-score']:.2f}</span>
             </div>"""
         report_html = f"""
       <div class="sdp">
