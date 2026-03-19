@@ -858,9 +858,15 @@ canvas.addEventListener('mousemove', e => {{
   }}
   if (found>=0) {{
     const b=BUILDINGS[found];
-    TIP.style.cssText=`position:absolute;display:block;
-      left:${{Math.min(e.clientX-r.left+14,r.width-190)}}px;
-      top:${{Math.max(e.clientY-r.top-60,4)}}px;pointer-events:none;z-index:20`;
+    TIP.style.cssText=`position:absolute;
+    display:block;
+    left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
+    top:${{Math.max(e.clientY-r.top-80,4)}}px;
+    min-width:260px;
+    min-height:100px;
+    padding:10px 14px;
+    font-size:13px;
+    pointer-events:none;z-index:20`;
     document.getElementById('tip-id').textContent='#'+String(found).padStart(4,'0');
     document.getElementById('tip-lbl').style.color=HFILLS[b.label];
     document.getElementById('tip-lbl').textContent=LABELS[b.label];
@@ -896,9 +902,15 @@ if (preCanvas) {{
     }}
     if (found >= 0) {{
       const b = PRE_BUILDINGS[found];
-      PRE_TIP.style.cssText = `position:absolute;display:block;
-        left:${{Math.min(e.clientX-r.left+14, r.width-190)}}px;
-        top:${{Math.max(e.clientY-r.top-60, 4)}}px;pointer-events:none;z-index:20`;
+      PRE_TIP.style.cssText = `position:absolute;
+      display:block;
+      left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
+      top:${{Math.max(e.clientY-r.top-80,4)}}px;
+      min-width:260px;
+      min-height:100px;
+      padding:10px 14px;
+      font-size:13px;
+      pointer-events:none;z-index:20`;
       document.getElementById('pre-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('pre-tip-lbl').textContent = 'INTACT';
       document.getElementById('pre-tip-lbl').style.color = '#40c8ff';
@@ -936,9 +948,15 @@ if (gtCanvas) {{
     if (found >= 0) {{
       const b = GT_BUILDINGS[found];
       const lbl = b.label || 0;
-      GT_TIP.style.cssText = `position:absolute;display:block;
-        left:${{Math.min(e.clientX-r.left+14, r.width-190)}}px;
-        top:${{Math.max(e.clientY-r.top-60, 4)}}px;pointer-events:none;z-index:20`;
+      GT_TIP.style.cssText = `position:absolute;
+      display:block;
+      left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
+      top:${{Math.max(e.clientY-r.top-80,4)}}px;
+      min-width:260px;
+      min-height:100px;
+      padding:10px 14px;
+      font-size:13px;
+      pointer-events:none;z-index:20`;
       document.getElementById('gt-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('gt-tip-lbl').style.color = HFILLS[lbl];
       document.getElementById('gt-tip-lbl').textContent = LABELS[lbl];
