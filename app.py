@@ -231,11 +231,9 @@ def build_hud(pre_b64: str | None, post_b64: str,
                 r = report[cls]
                 rows += f"""
             <div class="sdrow">
-                <span style="font-size:13px">{cls.upper()}</span>
-                <span style="font-size:13px">
-                    P:{r['precision']:.2f}
-                    R:{r['recall']:.2f}
-                    F1:{r['f1-score']:.2f}
+                <span style="font-size:13px;white-space:nowrap">{cls.upper()}</span>
+                <span style="font-size:13px;white-space:nowrap;text-align:right">
+                    P:{r['precision']:.2f} R:{r['recall']:.2f} F1:{r['f1-score']:.2f}
                 </span>
             </div>"""
         report_html = f"""
@@ -310,7 +308,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
   .sdgrid {{display:grid;grid-template-columns:1fr 1fr 1fr 210px;gap:8px}}
   .sdcol  {{display:flex;flex-direction:column;gap:8px}}
   .sdrow  {{
-    display:flex;justify-content:space-between;align-items:center;
+    display:flex;justify-content:space-between;align-items:center;gap:8px;
     padding:3px 0;font-size:14px;border-bottom:1px solid #060e18;
   }}
   .sdrow span:first-child {{color:#40c8ff;font-size:13px;letter-spacing:1px}}
