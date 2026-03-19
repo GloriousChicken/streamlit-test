@@ -216,11 +216,33 @@ def pil_to_b64(img: Image.Image, max_w: int = 600) -> str:
 def build_hud(pre_b64: str | None, post_b64: str,
               buildings: list, pre_buildings: list,
               event_name: str = "—", model: dict | None = None,
-              gt_buildings: list | None = None) -> str:
+              gt_buildings: list | None = None,
+              report: dict | None = None) -> str:
 
     buildings_json = json.dumps(buildings)
     pre_buildings_json = json.dumps(pre_buildings)
     gt_buildings_json = json.dumps(gt_buildings or [])
+
+    report_html = ""
+    if report:
+        rows = ""
+        for cls in ["no-damage", "minor-damage", "major-damage", "destroyed"]:
+            if cls in report:
+                r = report[cls]
+                rows += f"""
+            <div class="sdrow">
+                <span style="font-size:11px">{cls.upper()}</span>
+                <span style="font-size:11px">
+                    P:{r['precision']:.2f}
+                    R:{r['recall']:.2f}
+                    F1:{r['f1-score']:.2f}
+                </span>
+            </div>"""
+        report_html = f"""
+      <div class="sdp">
+        <div class="sdl">PER-CLASS REPORT</div>
+        {rows}
+      </div>"""
 
     pre_html = f"""
       <div id="pre-imgbox">
@@ -570,6 +592,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
         <div class="sdrow"><span>ACCURACY</span><span>{model['acc'] if model else '—'}</span></div>
         <div class="sdrow" style="border-bottom:none"><span>BEST EPOCH</span><span>{model['epoch'] if model else '—'}</span></div>
       </div>
+      {report_html}
     </div>
   </div>
 
@@ -1066,16 +1089,16 @@ else:
             st.error(f"Invalid post-disaster JSON: {exc}")
 
 # ── Prediction
-buildings = predict_api(
+buildings, report = predict_api(
     post_img, pre_img=pre_img,
     post_json_file=uploaded_post_json,
     pre_json_file=uploaded_pre_json,
     seed=seed,
     model_key=selected_model["api"],
 )
-hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model, gt_buildings=gt_buildings)
+hud_html = build_hud(pre_b64, post_b64, buildings, pre_buildings, event_name, model=selected_model, gt_buildings=gt_buildings, report=report)
 
 st.components.v1.html(hud_html, height=760, scrolling=False)
 
 with st.expander("Raw predictions"):
-    st.json({"post_buildings": buildings, "pre_buildings": pre_buildings, "gt_buildings": gt_buildings})
+    st.json({"post_buildings": buildings, "pre_buildings": pre_buildings, "gt_buildings": gt_buildings, "report": report})

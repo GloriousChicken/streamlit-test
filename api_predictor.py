@@ -74,7 +74,7 @@ def predict_api(
     # Need all 4 files for the API
     if pre_img is None or post_json_file is None or pre_json_file is None:
         st.error("API requires pre & post images + both JSON labels.")
-        return []
+        return [], {}
 
     # Parse the post JSON to extract bboxes for the response
     post_json_file.seek(0)
@@ -109,7 +109,7 @@ def predict_api(
                 "label":      int(b.get("prediction", 0)),
                 "confidence": float(b.get("confidence", 0.0)),
             })
-        return buildings
+        return buildings, api_result.get("report", {})
 
     except requests.exceptions.ConnectionError:
         st.error("Could not connect to prediction API — is the Docker container running?")
@@ -120,4 +120,4 @@ def predict_api(
     except Exception as exc:
         st.error(f"Unexpected error calling prediction API: {exc}")
 
-    return []
+    return [], {}
