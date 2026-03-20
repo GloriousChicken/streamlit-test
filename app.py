@@ -866,9 +866,8 @@ canvas.addEventListener('mousemove', e => {{
     font-size:13px;
     pointer-events:none;z-index:20`;
     document.getElementById('tip-id').textContent='#'+String(found).padStart(4,'0');
-    document.getElementById('tip-lbl').style.color=HFILLS[b.label];
     document.getElementById('tip-lbl').textContent=LABELS[b.label];
-    document.getElementById('tip-lbl').style.cssText = `margin-top:15px;font-size:16px;`;
+    document.getElementById('tip-lbl').style.cssText = `margin-top:4px;font-size:16px;color:${{HFILLS[b.label]}}`;
     document.getElementById('tip-conf').textContent=Math.round(b.confidence*100)+'%';
   }} else {{ TIP.style.display='none'; }}
 }});
@@ -912,8 +911,7 @@ if (preCanvas) {{
       pointer-events:none;z-index:20`;
       document.getElementById('pre-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('pre-tip-lbl').textContent = 'INTACT';
-      document.getElementById('pre-tip-lbl').style.color = '#40c8ff';
-      document.getElementById('pre-tip-lbl').style.cssText = `margin-top:15px;font-size:16px;`;
+      document.getElementById('pre-tip-lbl').style.cssText = `margin-top:4px;font-size:16px;color:#40c8ff`;
       document.getElementById('pre-tip-status').textContent = 'PRE-DISASTER';
     }} else {{ PRE_TIP.style.display = 'none'; }}
   }});
@@ -958,9 +956,8 @@ if (gtCanvas) {{
       font-size:13px;
       pointer-events:none;z-index:20`;
       document.getElementById('gt-tip-id').textContent = '#'+String(found).padStart(4,'0');
-      document.getElementById('gt-tip-lbl').style.color = HFILLS[lbl];
       document.getElementById('gt-tip-lbl').textContent = LABELS[lbl];
-      document.getElementById('gt-tip-lbl').style.cssText = `margin-top:15px;font-size:16px;`;
+      document.getElementById('gt-tip-lbl').style.cssText = `margin-top:4px;font-size:16px;color:${{HFILLS[lbl]}}`;
       document.getElementById('gt-tip-src').textContent = 'GROUND TRUTH';
     }} else {{ GT_TIP.style.display = 'none'; }}
   }});
