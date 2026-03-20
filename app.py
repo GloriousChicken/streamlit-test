@@ -868,7 +868,7 @@ canvas.addEventListener('mousemove', e => {{
     document.getElementById('tip-id').textContent='#'+String(found).padStart(4,'0');
     document.getElementById('tip-lbl').style.color=HFILLS[b.label];
     document.getElementById('tip-lbl').textContent=LABELS[b.label];
-    document.getElementById('tip-lbl').style.cssText = `margin-top:25px;font-size:16px;`;
+    document.getElementById('tip-lbl').style.cssText = `margin-top:-10px;font-size:16px;`;
     document.getElementById('tip-conf').textContent=Math.round(b.confidence*100)+'%';
   }} else {{ TIP.style.display='none'; }}
 }});
@@ -913,7 +913,7 @@ if (preCanvas) {{
       document.getElementById('pre-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('pre-tip-lbl').textContent = 'INTACT';
       document.getElementById('pre-tip-lbl').style.color = '#40c8ff';
-      document.getElementById('pre-tip-lbl').style.cssText = `margin-top:25px;font-size:16px;`;
+      document.getElementById('pre-tip-lbl').style.cssText = `margin-top:-10px;font-size:16px;`;
       document.getElementById('pre-tip-status').textContent = 'PRE-DISASTER';
     }} else {{ PRE_TIP.style.display = 'none'; }}
   }});
@@ -960,7 +960,7 @@ if (gtCanvas) {{
       document.getElementById('gt-tip-id').textContent = '#'+String(found).padStart(4,'0');
       document.getElementById('gt-tip-lbl').style.color = HFILLS[lbl];
       document.getElementById('gt-tip-lbl').textContent = LABELS[lbl];
-      document.getElementById('gt-tip-lbl').style.cssText = `margin-top:25px;font-size:16px;`;
+      document.getElementById('gt-tip-lbl').style.cssText = `margin-top:-10px;font-size:16px;`;
       document.getElementById('gt-tip-src').textContent = 'GROUND TRUTH';
     }} else {{ GT_TIP.style.display = 'none'; }}
   }});
