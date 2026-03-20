@@ -252,18 +252,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
           <div class="lo-corner lo-tl"></div><div class="lo-corner lo-tr"></div>
           <div class="lo-corner lo-bl"></div><div class="lo-corner lo-br"></div>
         </div>
-        <div id="pre-tip">
-          <div class="tip-hdr">
-            <span>STRUCTURE ID</span><span id="pre-tip-id">#0000</span>
-          </div>
-          <div class="tip-body">
-            <div class="tip-lbl" id="pre-tip-lbl">INTACT</div>
-            <div class="tip-row">
-              <span class="tip-key">STATUS</span>
-              <span class="tip-val" id="pre-tip-status">PRE-DISASTER</span>
-            </div>
-          </div>
-        </div>
+        <div id="pre-tip"><div class="tip-lbl" id="pre-tip-lbl">INTACT</div></div>
       </div>""" if pre_b64 else """
       <div style="background:#060e18;border:0.5px solid #0a2a4a;min-height:110px;
            display:flex;align-items:center;justify-content:center;
@@ -407,17 +396,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
     clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,0 100%);
     box-shadow:0 0 14px #00aaff44;min-width:180px;
   }}
-  .tip-hdr {{
-    display:flex;justify-content:space-between;align-items:center;
-    padding:4px 8px;border-bottom:1px solid #0a3050;
-    font-size:12px;letter-spacing:1.5px;color:#40c8ff;
-    white-space:nowrap;gap:10px;
-  }}
-  .tip-body {{padding:5px 8px}}
-  .tip-lbl {{font-size:15px;font-weight:700;letter-spacing:1px;margin-bottom:6px}}
-  .tip-row {{display:flex;justify-content:space-between;align-items:center;gap:12px;white-space:nowrap}}
-  .tip-key {{font-size:12px;color:#40c8ff;letter-spacing:1px}}
-  .tip-val {{font-size:14px;font-weight:600;color:#40c8ff}}
+  .tip-lbl {{padding:6px 10px;font-size:14px;font-weight:700;letter-spacing:1px}}
 
   /* === IMG FOOTER === */
   .img-footer {{
@@ -510,18 +489,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
             <div class="lo-corner lo-tl"></div><div class="lo-corner lo-tr"></div>
             <div class="lo-corner lo-bl"></div><div class="lo-corner lo-br"></div>
           </div>
-          <div id="sdtip">
-            <div class="tip-hdr">
-              <span>TARGET ACQUIRED</span><span id="tip-id">#0000</span>
-            </div>
-            <div class="tip-body">
-              <div class="tip-lbl" id="tip-lbl">—</div>
-              <div class="tip-row">
-                <span class="tip-key">CONFIDENCE</span>
-                <span class="tip-val" id="tip-conf">—</span>
-              </div>
-            </div>
-          </div>
+          <div id="sdtip"><div class="tip-lbl" id="tip-lbl">—</div></div>
         </div>
       </div>
       <div class="img-footer">
@@ -545,18 +513,7 @@ def build_hud(pre_b64: str | None, post_b64: str,
             <div class="lo-corner lo-tl"></div><div class="lo-corner lo-tr"></div>
             <div class="lo-corner lo-bl"></div><div class="lo-corner lo-br"></div>
           </div>
-          <div id="gt-tip">
-            <div class="tip-hdr">
-              <span>GROUND TRUTH</span><span id="gt-tip-id">#0000</span>
-            </div>
-            <div class="tip-body">
-              <div class="tip-lbl" id="gt-tip-lbl">—</div>
-              <div class="tip-row">
-                <span class="tip-key">SOURCE</span>
-                <span class="tip-val" id="gt-tip-src">GROUND TRUTH</span>
-              </div>
-            </div>
-          </div>
+          <div id="gt-tip"><div class="tip-lbl" id="gt-tip-lbl">—</div></div>
         </div>
       </div>
       <div class="img-footer">
@@ -711,11 +668,6 @@ function draw() {{
     ctx.strokeStyle = (hov ? HFILLS : FILLS)[b.label];
     ctx.lineWidth   = hov ? 1.5 : 0.8;
     ctx.fillRect(x,y,w,h); ctx.strokeRect(x,y,w,h);
-    if (hov) {{
-      ctx.fillStyle = HFILLS[b.label];
-      ctx.font = 'bold 10px monospace';
-      ctx.fillText(Math.round(b.confidence*100)+'%', x+3, y+10);
-    }}
   }});
 }}
 
@@ -856,19 +808,9 @@ canvas.addEventListener('mousemove', e => {{
   }}
   if (found>=0) {{
     const b=BUILDINGS[found];
-    TIP.style.cssText=`position:absolute;
-    display:block;
-    left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
-    top:${{Math.max(e.clientY-r.top-80,4)}}px;
-    min-width:220px;
-    min-height:80px;
-    padding:10px 14px;
-    font-size:13px;
-    pointer-events:none;z-index:20`;
-    document.getElementById('tip-id').textContent='#'+String(found).padStart(4,'0');
+    TIP.style.cssText=`position:absolute;display:block;left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;top:${{Math.max(e.clientY-r.top-40,4)}}px;pointer-events:none;z-index:20`;
     document.getElementById('tip-lbl').textContent=LABELS[b.label];
-    document.getElementById('tip-lbl').style.cssText = `margin-top:4px;font-size:16px;color:${{HFILLS[b.label]}}`;
-    document.getElementById('tip-conf').textContent=Math.round(b.confidence*100)+'%';
+    document.getElementById('tip-lbl').style.cssText=`font-size:14px;font-weight:700;letter-spacing:1px;color:${{HFILLS[b.label]}}`;
   }} else {{ TIP.style.display='none'; }}
 }});
 canvas.addEventListener('mouseleave',()=>{{
@@ -900,19 +842,9 @@ if (preCanvas) {{
     }}
     if (found >= 0) {{
       const b = PRE_BUILDINGS[found];
-      PRE_TIP.style.cssText = `position:absolute;
-      display:block;
-      left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
-      top:${{Math.max(e.clientY-r.top-80,4)}}px;
-      min-width:220px;
-      min-height:80px;
-      padding:10px 14px;
-      font-size:13px;
-      pointer-events:none;z-index:20`;
-      document.getElementById('pre-tip-id').textContent = '#'+String(found).padStart(4,'0');
+      PRE_TIP.style.cssText = `position:absolute;display:block;left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;top:${{Math.max(e.clientY-r.top-40,4)}}px;pointer-events:none;z-index:20`;
       document.getElementById('pre-tip-lbl').textContent = 'INTACT';
-      document.getElementById('pre-tip-lbl').style.cssText = `margin-top:4px;font-size:16px;color:#40c8ff`;
-      document.getElementById('pre-tip-status').textContent = 'PRE-DISASTER';
+      document.getElementById('pre-tip-lbl').style.cssText = `font-size:14px;font-weight:700;letter-spacing:1px;color:#40c8ff`;
     }} else {{ PRE_TIP.style.display = 'none'; }}
   }});
   preCanvas.addEventListener('mouseleave', () => {{
@@ -946,19 +878,9 @@ if (gtCanvas) {{
     if (found >= 0) {{
       const b = GT_BUILDINGS[found];
       const lbl = b.label || 0;
-      GT_TIP.style.cssText = `position:absolute;
-      display:block;
-      left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;
-      top:${{Math.max(e.clientY-r.top-80,4)}}px;
-      min-width:220px;
-      min-height:80px;
-      padding:10px 14px;
-      font-size:13px;
-      pointer-events:none;z-index:20`;
-      document.getElementById('gt-tip-id').textContent = '#'+String(found).padStart(4,'0');
+      GT_TIP.style.cssText = `position:absolute;display:block;left:${{Math.min(e.clientX-r.left+14,r.width-260)}}px;top:${{Math.max(e.clientY-r.top-40,4)}}px;pointer-events:none;z-index:20`;
       document.getElementById('gt-tip-lbl').textContent = LABELS[lbl];
-      document.getElementById('gt-tip-lbl').style.cssText = `margin-top:4px;font-size:16px;color:${{HFILLS[lbl]}}`;
-      document.getElementById('gt-tip-src').textContent = 'GROUND TRUTH';
+      document.getElementById('gt-tip-lbl').style.cssText = `font-size:14px;font-weight:700;letter-spacing:1px;color:${{HFILLS[lbl]}}`;
     }} else {{ GT_TIP.style.display = 'none'; }}
   }});
   gtCanvas.addEventListener('mouseleave', () => {{
