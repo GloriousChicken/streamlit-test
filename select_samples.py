@@ -8,8 +8,6 @@ from collections import defaultdict
 from pathlib import Path
 
 
-DEFAULT_LABELS = "REDACTED_PATH"
-DEFAULT_IMAGES = "REDACTED_PATH"
 DEFAULT_OUTPUT = "./samples/"
 
 
@@ -167,8 +165,8 @@ def copy_files(selected, labels_dir: Path, images_dir: Path, output_dir: Path):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--labels-dir", type=Path, default=Path(DEFAULT_LABELS))
-    parser.add_argument("--images-dir", type=Path, default=Path(DEFAULT_IMAGES))
+    parser.add_argument("--labels-dir", type=Path, required=True)
+    parser.add_argument("--images-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=Path(DEFAULT_OUTPUT))
     parser.add_argument("--min-buildings", type=int, default=20)
     parser.add_argument("--max-buildings", type=int, default=100)

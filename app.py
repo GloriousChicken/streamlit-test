@@ -3,6 +3,7 @@ app.py — SatDamage Assessment HUD (Streamlit prototype)
 Run: streamlit run app.py
 """
 
+import html
 import json
 import numpy as np
 import streamlit as st
@@ -989,7 +990,7 @@ else:
         pre_img = Image.open(uploaded_pre).convert("RGB")
         pre_b64 = pil_to_b64(pre_img, max_w=600)
     seed       = hash(uploaded_post.name) % 9999
-    event_name = uploaded_post.name.upper()
+    event_name = html.escape(uploaded_post.name.upper())
 
     # ── Parse uploaded pre JSON for HUD overlay
     if uploaded_pre_json is not None:

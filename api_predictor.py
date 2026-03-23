@@ -6,6 +6,7 @@ and returns a list of {x, y, w, h, label, confidence} dicts.
 
 import io
 import json
+import os
 import re
 
 import requests
@@ -14,7 +15,7 @@ from PIL import Image
 from typing import List, Dict, Optional
 from streamlit.runtime.uploaded_file_manager import UploadedFile
 
-DEFAULT_API_URL = "REDACTED_API_URL"
+DEFAULT_API_URL = os.environ.get("SATDAMAGE_API_URL", "")
 
 SUBTYPE_MAP = {"no-damage": 0, "minor-damage": 1, "major-damage": 2, "destroyed": 3}
 
@@ -71,6 +72,10 @@ def predict_api(
     Returns list of {x, y, w, h, label, confidence} dicts.
     Returns an empty list if required files are missing or the API errors.
     """
+    if not api_url:
+        st.error("SATDAMAGE_API_URL environment variable is not set.")
+        return [], {}
+
     # Need all 4 files for the API
     if pre_img is None or post_json_file is None or pre_json_file is None:
         st.error("API requires pre & post images + both JSON labels.")
